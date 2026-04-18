@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { sessionRouter } from './routes/session.js';
 import { tavilyRouter } from './routes/tavily.js';
+import { feedbackRouter } from './routes/feedback.js';
 
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? '*' }));
@@ -21,5 +22,6 @@ app.get('/api/config', (_req, res) => {
 
 app.use('/api/session', sessionRouter);
 app.use('/api/tavily', tavilyRouter);
+app.use('/api/feedback', feedbackRouter);
 
 export default app;

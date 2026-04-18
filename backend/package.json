@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "register-secret": "tsx src/setup/register-secret.ts",
     "register-tavily-tool": "tsx src/setup/register-tavily-tool.ts",
     "create-student-agent": "tsx src/setup/create-student-agent.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.0.0",
+    "@google/genai": "^1.50.1",
     "@tavily/core": "^0.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

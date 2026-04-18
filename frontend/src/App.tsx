@@ -11,6 +11,7 @@ import { matchVisual, type Visual } from './lib/visualMatcher';
 import { IS_MOCK } from './lib/mockMode';
 import type { AppMode } from './lib/heygen';
 import { AvatarPicker } from './components/AvatarPicker';
+import { FeedbackModal } from './components/FeedbackModal';
 
 const IS_PICKER =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('picker');
@@ -35,6 +36,7 @@ function TutoriAI() {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [mockLive, setMockLive] = useState(false);
   const [mode, setMode] = useState<AppMode>('learn');
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const stageRef = useRef<AvatarStageHandle | null>(null);
 
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
@@ -55,6 +57,7 @@ function TutoriAI() {
   );
 
   const endSession = useCallback(() => {
+    const wasTeaching = mode === 'teach';
     if (IS_MOCK) {
       setMockLive(false);
       setAvatarLive(false);
@@ -62,7 +65,11 @@ function TutoriAI() {
     } else {
       stageRef.current?.stop();
     }
-  }, []);
+    // Only open feedback for Teach mode and when there's actual teaching content.
+    if (wasTeaching && transcript.filter((t) => t.role === 'user').length > 0) {
+      setFeedbackOpen(true);
+    }
+  }, [mode, transcript]);
 
   const effectiveLive = IS_MOCK ? mockLive : avatarLive;
 
@@ -210,6 +217,12 @@ function TutoriAI() {
         open={transcriptOpen}
         onClose={() => setTranscriptOpen(false)}
         entries={transcript}
+      />
+
+      <FeedbackModal
+        open={feedbackOpen}
+        transcript={transcript}
+        onClose={() => setFeedbackOpen(false)}
       />
 
       {IS_MOCK && (

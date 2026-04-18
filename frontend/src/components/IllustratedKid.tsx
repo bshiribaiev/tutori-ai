@@ -85,18 +85,20 @@ export function IllustratedKid({ speaking, listening }: Props) {
         )}
       </svg>
 
-      {/* state badge */}
-      <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
-        <div className={
-          'w-1.5 h-1.5 rounded-full ' +
-          (state === 'speaking' ? 'bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.9)]' :
-           state === 'listening' ? 'bg-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.9)]' :
-           'bg-neutral-600')
-        } />
-        <span className="text-[10px] uppercase tracking-widest font-medium text-neutral-300">
-          Mila · 8 · {state}
-        </span>
-      </div>
+      {/* state badge — hidden in idle */}
+      {state !== 'idle' && (
+        <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
+          <div className={
+            'w-1.5 h-1.5 rounded-full ' +
+            (state === 'speaking'
+              ? 'bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.9)]'
+              : 'bg-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.9)]')
+          } />
+          <span className="text-[10px] uppercase tracking-widest font-medium text-neutral-300">
+            Mila · {state}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
