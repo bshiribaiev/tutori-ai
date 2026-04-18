@@ -63,7 +63,7 @@ export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarS
   }, [status, stop]);
 
   return (
-    <div className="relative w-full max-w-3xl">
+    <div className="relative w-full">
       <div
         className={
           'absolute -inset-10 rounded-[48px] halo transition-opacity ' +

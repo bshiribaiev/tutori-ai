@@ -10,10 +10,10 @@ type Props = {
 export function VisualCanvas({ visual }: Props) {
   if (!visual) {
     return (
-      <div className="glass rounded-2xl min-h-[280px] flex items-center justify-center px-8">
-        <div className="text-center space-y-1.5">
+      <div className="relative aspect-video glass rounded-3xl flex items-center justify-center px-8">
+        <div className="text-center space-y-1.5 max-w-xs">
           <div className="text-[10px] uppercase tracking-widest text-neutral-500">Live visuals</div>
-          <div className="text-xs text-neutral-500 max-w-xs">
+          <div className="text-xs text-neutral-500">
             When your tutor explains something visual, it appears here in sync.
           </div>
         </div>
@@ -22,7 +22,7 @@ export function VisualCanvas({ visual }: Props) {
   }
 
   return (
-    <div key={JSON.stringify(visual)} className="glass rounded-2xl min-h-[280px] p-6 flex flex-col justify-center items-center animate-fade-in">
+    <div key={JSON.stringify(visual)} className="relative aspect-video glass rounded-3xl p-6 flex flex-col justify-center items-center animate-fade-in">
       {visual.kind === 'equation' && <EquationView latex={visual.latex} caption={visual.caption} />}
       {visual.kind === 'plot' && <PlotView fn={visual.fn} caption={visual.caption} />}
       {visual.kind === 'callout' && <CalloutView title={visual.title} body={visual.body} />}

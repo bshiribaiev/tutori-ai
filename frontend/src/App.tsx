@@ -39,11 +39,13 @@ export default function App() {
     [appendTranscript],
   );
 
+  const heroVisible = !avatarLive && transcript.length === 0;
+
   return (
     <div className="min-h-screen w-full bg-field relative overflow-hidden">
       <AmbientParticles intensity={avatarLive ? 1.4 : 1} />
 
-      <header className="relative z-10 px-8 py-6 flex items-center">
+      <header className="relative z-10 px-8 py-5 flex items-center">
         <div className="flex items-center gap-3">
           <div
             className={
@@ -59,10 +61,23 @@ export default function App() {
         </div>
       </header>
 
-      {!avatarLive && transcript.length === 0 && <HeroOverlay />}
+      {heroVisible && (
+        <div className="relative z-10 max-w-7xl mx-auto px-8 pb-2 text-center">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-sky-300/70 font-medium mb-2">
+            Elevating learning accessibility
+          </div>
+          <h1 className="text-3xl md:text-4xl font-semibold text-neutral-100 tracking-tight leading-tight">
+            A personal tutor,{' '}
+            <span className="bg-gradient-to-br from-sky-300 to-amber-200 bg-clip-text text-transparent">
+              just for you.
+            </span>
+          </h1>
+        </div>
+      )}
 
-      <main className="relative z-10 max-w-7xl mx-auto px-8 pb-8 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
-        <section className="relative flex flex-col items-center justify-start gap-4 pt-4">
+      <main className="relative z-10 max-w-7xl mx-auto px-8 pb-8 pt-4 space-y-4">
+        {/* Top row: avatar | visuals */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AvatarStage
             ref={stageRef}
             onStatusChange={setAvatarLive}
@@ -71,18 +86,18 @@ export default function App() {
             onTurn={appendTranscript}
             listening={listening}
           />
-          <div className="w-full max-w-3xl">
-            <VisualCanvas visual={visual} />
-          </div>
-          <SuggestedPrompts
-            disabled={!avatarLive}
-            onPick={sendFromUser}
-          />
-        </section>
+          <VisualCanvas visual={visual} />
+        </div>
 
-        <aside className="flex flex-col gap-3 pt-4">
-          <div className="glass rounded-2xl flex-1 flex flex-col min-h-[460px]">
-            <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/5">
+        {/* Suggested prompts (only when idle or empty) */}
+        {(heroVisible || !avatarLive) && (
+          <SuggestedPrompts disabled={!avatarLive} onPick={sendFromUser} />
+        )}
+
+        {/* Transcript + controls bottom strip */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
+          <div className="glass rounded-2xl flex flex-col min-h-[180px] max-h-[260px]">
+            <div className="px-5 pt-3 pb-2 flex items-center justify-between border-b border-white/5">
               <div className="text-xs uppercase tracking-widest text-neutral-500">Transcript</div>
               <div className="text-[10px] text-neutral-600 tabular-nums">
                 {transcript.length} turn{transcript.length === 1 ? '' : 's'}
@@ -91,31 +106,16 @@ export default function App() {
             <TranscriptPanel entries={transcript} />
           </div>
 
-          <TextInput disabled={!avatarLive} onSend={sendFromUser} />
-
-          <MicButton
-            avatarLive={avatarLive}
-            speaking={speaking}
-            onInterrupt={() => stageRef.current?.interrupt()}
-          />
-        </aside>
+          <div className="flex flex-col gap-3">
+            <TextInput disabled={!avatarLive} onSend={sendFromUser} />
+            <MicButton
+              avatarLive={avatarLive}
+              speaking={speaking}
+              onInterrupt={() => stageRef.current?.interrupt()}
+            />
+          </div>
+        </div>
       </main>
-    </div>
-  );
-}
-
-function HeroOverlay() {
-  return (
-    <div className="relative z-10 max-w-7xl mx-auto px-8 pt-4 pb-6 text-center">
-      <div className="text-[10px] uppercase tracking-[0.3em] text-sky-300/70 font-medium mb-2">
-        Elevating learning accessibility
-      </div>
-      <h1 className="text-3xl md:text-4xl font-semibold text-neutral-100 tracking-tight leading-tight">
-        A personal tutor,{' '}
-        <span className="bg-gradient-to-br from-sky-300 to-amber-200 bg-clip-text text-transparent">
-          just for you.
-        </span>
-      </h1>
     </div>
   );
 }
