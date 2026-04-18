@@ -8,11 +8,10 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "outDir": "dist",
-    "rootDir": "src",
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "declaration": false,
     "isolatedModules": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "api/**/*.ts"]
 }
