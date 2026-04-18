@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-accent: #7dd3fc;
+  --color-accent-warm: #fbbf24;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: #050507;
+  color: #e7e5e4;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ambient background field */
+.bg-field {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(125, 211, 252, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(251, 191, 36, 0.04), transparent 60%),
+    #050507;
+}
+
+/* breathing halo behind avatar */
+@keyframes halo-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.04); }
+}
+.halo {
+  animation: halo-pulse 4s ease-in-out infinite;
+}
+
+/* glass panel */
+.glass {
+  background: rgba(20, 20, 26, 0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* mic mini-waveform shimmer */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50%      { transform: scaleY(1);   }
+}
+.wave-bar { animation: wave 0.9s ease-in-out infinite; transform-origin: center; }
+
+/* subtle scroll */
+.scroll-subtle::-webkit-scrollbar { width: 6px; }
+.scroll-subtle::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
