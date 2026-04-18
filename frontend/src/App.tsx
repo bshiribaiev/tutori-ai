@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import { AvatarStage, type AvatarStageHandle } from './components/AvatarStage';
 import { TeachStage } from './components/TeachStage';
+import { LearnPreviewStage } from './components/LearnPreviewStage';
+
+type RenderMode = 'live' | 'preview';
 import { MicButton } from './components/MicButton';
 import { TranscriptDrawer } from './components/TranscriptDrawer';
 import { AmbientParticles } from './components/AmbientParticles';
@@ -36,6 +39,7 @@ function TutoriAI() {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [mockLive, setMockLive] = useState(false);
   const [mode, setMode] = useState<AppMode>('learn');
+  const [renderMode, setRenderMode] = useState<RenderMode>('preview');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const stageRef = useRef<AvatarStageHandle | null>(null);
 
@@ -90,7 +94,12 @@ function TutoriAI() {
           <span className="text-2xl font-bold tracking-tight text-neutral-100">TutoriAI</span>
         </div>
 
-        <ModeTabs mode={mode} onChange={setMode} disabled={effectiveLive} />
+        <div className="flex items-center gap-3">
+          <ModeTabs mode={mode} onChange={setMode} disabled={effectiveLive} />
+          {mode === 'learn' && (
+            <RenderToggle mode={renderMode} onChange={setRenderMode} disabled={effectiveLive} />
+          )}
+        </div>
 
         <button
           onClick={() => setTranscriptOpen(true)}
@@ -146,7 +155,7 @@ function TutoriAI() {
               (effectiveLive ? 'w-1/2 max-w-none' : 'w-full max-w-4xl')
             }
           >
-            {mode === 'learn' ? (
+            {mode === 'learn' && renderMode === 'live' && (
               <AvatarStage
                 ref={stageRef}
                 onStatusChange={setAvatarLive}
@@ -157,7 +166,18 @@ function TutoriAI() {
                 mockLive={mockLive}
                 mode={mode}
               />
-            ) : (
+            )}
+            {mode === 'learn' && renderMode === 'preview' && (
+              <LearnPreviewStage
+                ref={stageRef}
+                onStatusChange={setAvatarLive}
+                onSpeakingChange={setSpeaking}
+                onListeningChange={setListening}
+                onTurn={appendTranscript}
+                mockLive={mockLive}
+              />
+            )}
+            {mode === 'teach' && (
               <TeachStage
                 ref={stageRef}
                 onStatusChange={setAvatarLive}
@@ -235,6 +255,37 @@ function TutoriAI() {
           onAgentTurn={appendTranscript}
         />
       )}
+    </div>
+  );
+}
+
+function RenderToggle({ mode, onChange, disabled }: { mode: RenderMode; onChange: (m: RenderMode) => void; disabled?: boolean }) {
+  const tabs: { key: RenderMode; label: string; sub: string }[] = [
+    { key: 'preview', label: 'Preview', sub: 'illustrated · free' },
+    { key: 'live', label: 'Live', sub: 'photoreal · uses credits' },
+  ];
+  return (
+    <div className="flex items-center gap-1 p-1 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm">
+      {tabs.map((t) => {
+        const active = mode === t.key;
+        return (
+          <button
+            key={t.key}
+            disabled={disabled}
+            onClick={() => onChange(t.key)}
+            title={disabled ? 'End session to switch' : t.sub}
+            className={
+              'px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide transition-all ' +
+              (active
+                ? (t.key === 'preview' ? 'bg-neutral-800 text-neutral-100' : 'bg-red-400/15 text-red-200 border border-red-400/30')
+                : 'text-neutral-500 hover:text-neutral-300') +
+              (disabled && !active ? ' opacity-30 cursor-not-allowed' : '')
+            }
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

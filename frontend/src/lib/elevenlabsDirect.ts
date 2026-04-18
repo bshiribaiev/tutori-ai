@@ -6,25 +6,28 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
 type TurnEvent = { role: 'user' | 'agent'; text: string };
 
 type Options = {
+  role?: AgentRole;
   onTurn?: (event: TurnEvent) => void;
   onModeChange?: (mode: 'speaking' | 'listening') => void;
 };
 
 export type ELDirectStatus = 'idle' | 'connecting' | 'live' | 'error';
 
-// Fetch the student agent ID from backend config (separate from the learn agent).
-async function fetchStudentAgentId(): Promise<string> {
+type AgentRole = 'student' | 'tutor';
+
+async function fetchAgentId(role: AgentRole): Promise<string> {
   const res = await fetch(`${API_BASE}/api/config`);
   const json = await res.json();
-  if (!json.elevenlabs_agent_id_student) throw new Error('student agent not configured');
-  return json.elevenlabs_agent_id_student;
+  const id = role === 'student' ? json.elevenlabs_agent_id_student : json.elevenlabs_agent_id;
+  if (!id) throw new Error(`${role} agent not configured`);
+  return id;
 }
 
 /**
  * Direct ElevenLabs Agent connection from the browser — no HeyGen involved.
  * Used by Teach mode so the kid character can respond without burning LiveAvatar credits.
  */
-export function useELDirect({ onTurn, onModeChange }: Options = {}) {
+export function useELDirect({ role = 'student', onTurn, onModeChange }: Options = {}) {
   const [status, setStatus] = useState<ELDirectStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -41,7 +44,7 @@ export function useELDirect({ onTurn, onModeChange }: Options = {}) {
     setStatus('connecting');
     setError(null);
     try {
-      const agentId = await fetchStudentAgentId();
+      const agentId = await fetchAgentId(role);
       const convo = await Conversation.startSession({
         agentId,
         connectionType: 'websocket',
