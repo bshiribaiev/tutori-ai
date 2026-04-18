@@ -58,7 +58,14 @@ export function useHeyGenAvatar(
         if (next === SessionState.DISCONNECTED) setStatus('idle');
       });
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
-        if (videoRef.current) session.attach(videoRef.current);
+        const el = videoRef.current;
+        if (!el) return;
+        session.attach(el);
+        // Force unmuted playback after attach. Browser autoplay policies allow
+        // audio since user clicked Start.
+        el.muted = false;
+        el.volume = 1;
+        el.play().catch((err) => console.warn('video.play() failed:', err));
       });
       session.on(SessionEvent.SESSION_DISCONNECTED, () => {
         sessionRef.current = null;

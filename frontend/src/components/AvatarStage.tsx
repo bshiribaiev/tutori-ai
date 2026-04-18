@@ -79,7 +79,13 @@ export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarS
           ref={videoRef}
           autoPlay
           playsInline
+          muted={false}
           className="w-full h-full object-cover"
+          onClick={(e) => {
+            const v = e.currentTarget;
+            if (v.paused) v.play().catch(() => {});
+            if (v.muted) v.muted = false;
+          }}
         />
 
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
