@@ -12,6 +12,8 @@ type Props = {
 export type AvatarStageHandle = {
   interrupt: () => void;
   stop: () => void;
+  sendMessage: (text: string) => void;
+  live: boolean;
 };
 
 // CREDIT GUARD: never auto-start. Each Start click burns free-tier minutes.
@@ -23,13 +25,18 @@ export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarS
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const { status, error, isSpeaking, connect, stop, interrupt } = useHeyGenAvatar(videoRef, {
+  const { status, error, isSpeaking, connect, stop, interrupt, sendMessage } = useHeyGenAvatar(videoRef, {
     onTurn,
     onListeningChange,
   });
   const [elapsed, setElapsed] = useState(0);
+  const live = status === 'live';
 
-  useImperativeHandle(ref, () => ({ interrupt, stop }), [interrupt, stop]);
+  useImperativeHandle(
+    ref,
+    () => ({ interrupt, stop, sendMessage, live }),
+    [interrupt, stop, sendMessage, live],
+  );
 
   useEffect(() => {
     onStatusChange?.(status === 'live');

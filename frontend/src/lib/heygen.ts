@@ -89,6 +89,11 @@ export function useHeyGenAvatar(
     sessionRef.current?.interrupt();
   }, []);
 
+  const sendMessage = useCallback((text: string) => {
+    if (!sessionRef.current) return;
+    sessionRef.current.message(text);
+  }, []);
+
   const stop = useCallback(async () => {
     await sessionRef.current?.stop();
     sessionRef.current = null;
@@ -101,5 +106,5 @@ export function useHeyGenAvatar(
     };
   }, []);
 
-  return { status, error, isSpeaking, connect, stop, interrupt };
+  return { status, error, isSpeaking, connect, stop, interrupt, sendMessage };
 }

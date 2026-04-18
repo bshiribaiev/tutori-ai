@@ -9,19 +9,26 @@
 html, body, #root {
   height: 100%;
   margin: 0;
-  background: #050507;
+  background: #0d1117;
   color: #e7e5e4;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* ambient background field */
+/* notebook-grid background field */
 .bg-field {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(125, 211, 252, 0.08), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(251, 191, 36, 0.04), transparent 60%),
-    #050507;
+  background-color: #0d1117;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(125, 211, 252, 0.09), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(251, 191, 36, 0.05), transparent 60%),
+    linear-gradient(rgba(125, 211, 252, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 211, 252, 0.035) 1px, transparent 1px);
+  background-size:
+    auto,
+    auto,
+    32px 32px,
+    32px 32px;
 }
 
 /* breathing halo behind avatar */
@@ -50,3 +57,10 @@ html, body, #root {
 /* subtle scroll */
 .scroll-subtle::-webkit-scrollbar { width: 6px; }
 .scroll-subtle::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+/* visual panel fade-in */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 350ms ease-out; }
