@@ -2,6 +2,22 @@ import { Router } from 'express';
 
 export const sessionRouter = Router();
 
+// Dev helper: current LiveAvatar credit balance.
+sessionRouter.get('/credits', async (_req, res) => {
+  const key = process.env.HEYGEN_API_KEY;
+  if (!key) return res.status(500).json({ error: 'HEYGEN_API_KEY missing' });
+  try {
+    const r = await fetch('https://api.liveavatar.com/v1/users/credits', {
+      headers: { 'x-api-key': key },
+    });
+    const body = await r.text();
+    if (!r.ok) return res.status(502).json({ error: 'credits check failed', status: r.status, detail: body });
+    res.json(JSON.parse(body).data ?? {});
+  } catch (err) {
+    res.status(500).json({ error: 'credits exception', detail: String(err) });
+  }
+});
+
 // Dev helper: list LiveAvatar public avatars so you can copy a valid avatar_id UUID.
 sessionRouter.get('/avatars', async (_req, res) => {
   const key = process.env.HEYGEN_API_KEY;
@@ -26,10 +42,14 @@ sessionRouter.get('/avatars', async (_req, res) => {
 // LITE mode: HeyGen renders avatar + lip-syncs audio from ElevenLabs Agent.
 // If ELEVENLABS_AGENT_ID + ELEVENLABS_SECRET_ID are set, the agent is wired
 // server-side so HeyGen talks to EL directly (no client-side audio relay).
-sessionRouter.post('/start', async (_req, res) => {
+sessionRouter.post('/start', async (req, res) => {
   const key = process.env.HEYGEN_API_KEY;
   const avatarId = process.env.HEYGEN_AVATAR_ID;
-  const agentId = process.env.ELEVENLABS_AGENT_ID;
+  const mode = req.body?.mode === 'teach' ? 'teach' : 'learn';
+  const agentId =
+    mode === 'teach'
+      ? process.env.ELEVENLABS_AGENT_ID_STUDENT
+      : process.env.ELEVENLABS_AGENT_ID;
   const secretId = process.env.ELEVENLABS_SECRET_ID;
   if (!key) return res.status(500).json({ error: 'HEYGEN_API_KEY missing' });
   if (!avatarId) return res.status(500).json({ error: 'HEYGEN_AVATAR_ID missing' });
@@ -60,6 +80,7 @@ sessionRouter.post('/start', async (_req, res) => {
       session_token: sessionToken,
       session_id: sessionId,
       mode: 'LITE',
+      persona: mode,
       agent_wired: Boolean(agentId && secretId),
     });
   } catch (err) {

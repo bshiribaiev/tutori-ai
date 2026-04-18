@@ -1,12 +1,19 @@
 import { useCallback, useRef, useState } from 'react';
 import { AvatarStage, type AvatarStageHandle } from './components/AvatarStage';
+import { TeachStage } from './components/TeachStage';
 import { MicButton } from './components/MicButton';
-import { TranscriptPanel } from './components/TranscriptPanel';
-import { SuggestedPrompts } from './components/SuggestedPrompts';
+import { TranscriptDrawer } from './components/TranscriptDrawer';
 import { AmbientParticles } from './components/AmbientParticles';
 import { TextInput } from './components/TextInput';
 import { VisualCanvas } from './components/VisualCanvas';
+import { MockControls } from './components/MockControls';
 import { matchVisual, type Visual } from './lib/visualMatcher';
+import { IS_MOCK } from './lib/mockMode';
+import type { AppMode } from './lib/heygen';
+import { AvatarPicker } from './components/AvatarPicker';
+
+const IS_PICKER =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('picker');
 
 export type TranscriptEntry = {
   role: 'user' | 'agent';
@@ -15,107 +22,237 @@ export type TranscriptEntry = {
 };
 
 export default function App() {
+  if (IS_PICKER) return <AvatarPicker />;
+  return <TutoriAI />;
+}
+
+function TutoriAI() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [avatarLive, setAvatarLive] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [visual, setVisual] = useState<Visual | null>(null);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [mockLive, setMockLive] = useState(false);
+  const [mode, setMode] = useState<AppMode>('learn');
   const stageRef = useRef<AvatarStageHandle | null>(null);
 
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
     setTranscript((prev) => [...prev, entry]);
-    if (entry.role === 'agent') {
-      const v = matchVisual(entry.text);
-      if (v) setVisual(v);
-    }
+    // Match visual on BOTH user questions and agent answers — fire early.
+    const v = matchVisual(entry.text);
+    console.log('[tutoriai]', entry.role, 'turn:', entry.text, '→ visual:', v?.kind ?? 'none');
+    if (v) setVisual(v);
   }, []);
 
   const sendFromUser = useCallback(
     (text: string) => {
-      if (!stageRef.current?.live) return;
+      if (!stageRef.current?.live && !mockLive) return;
       appendTranscript({ role: 'user', text });
-      stageRef.current.sendMessage(text);
+      stageRef.current?.sendMessage(text);
     },
-    [appendTranscript],
+    [appendTranscript, mockLive],
   );
 
-  const heroVisible = !avatarLive && transcript.length === 0;
+  const endSession = useCallback(() => {
+    if (IS_MOCK) {
+      setMockLive(false);
+      setAvatarLive(false);
+      setVisual(null);
+    } else {
+      stageRef.current?.stop();
+    }
+  }, []);
+
+  const effectiveLive = IS_MOCK ? mockLive : avatarLive;
 
   return (
     <div className="min-h-screen w-full bg-field relative overflow-hidden">
-      <AmbientParticles intensity={avatarLive ? 1.4 : 1} />
+      <AmbientParticles intensity={effectiveLive ? 1.4 : 1} />
 
-      <header className="relative z-10 px-8 py-5 flex items-center">
+      <header className="relative z-10 px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
             className={
-              'w-2 h-2 rounded-full transition-all ' +
-              (avatarLive
-                ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]'
+              'w-2.5 h-2.5 rounded-full transition-all ' +
+              (effectiveLive
+                ? 'bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]'
                 : 'bg-neutral-600')
             }
           />
-          <span className="text-sm font-semibold tracking-wide text-neutral-100">TutoriAI</span>
-          <span className="text-xs text-neutral-500">·</span>
-          <span className="text-xs text-neutral-500">{avatarLive ? 'live' : 'idle'}</span>
+          <span className="text-2xl font-bold tracking-tight text-neutral-100">TutoriAI</span>
         </div>
+
+        <ModeTabs mode={mode} onChange={setMode} disabled={effectiveLive} />
+
+        <button
+          onClick={() => setTranscriptOpen(true)}
+          className="flex items-center gap-2 text-xs text-neutral-400 hover:text-neutral-100 px-3 py-1.5 rounded-full border border-white/10 hover:border-white/20 bg-white/[0.03] hover:bg-white/[0.07] transition-colors"
+        >
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          Transcript
+          {transcript.length > 0 && (
+            <span className="text-[10px] tabular-nums bg-sky-400/20 text-sky-200 px-1.5 py-0.5 rounded-full">
+              {transcript.length}
+            </span>
+          )}
+        </button>
       </header>
 
-      {heroVisible && (
-        <div className="relative z-10 max-w-7xl mx-auto px-8 pb-2 text-center">
+      {!effectiveLive && (
+        <div className="relative z-10 max-w-7xl mx-auto px-8 pt-8 pb-4 text-center">
           <div className="text-[10px] uppercase tracking-[0.3em] text-sky-300/70 font-medium mb-2">
-            Elevating learning accessibility
+            {mode === 'learn' ? 'Elevating learning accessibility' : 'The Feynman technique'}
           </div>
-          <h1 className="text-3xl md:text-4xl font-semibold text-neutral-100 tracking-tight leading-tight">
-            A personal tutor,{' '}
-            <span className="bg-gradient-to-br from-sky-300 to-amber-200 bg-clip-text text-transparent">
-              just for you.
-            </span>
+          <h1 className="text-4xl md:text-5xl font-semibold text-neutral-100 tracking-tight leading-tight">
+            {mode === 'learn' ? (
+              <>
+                A personal tutor,{' '}
+                <span className="bg-gradient-to-br from-sky-300 to-amber-200 bg-clip-text text-transparent">
+                  just for you.
+                </span>
+              </>
+            ) : (
+              <>
+                Teach a curious kid.{' '}
+                <span className="bg-gradient-to-br from-amber-200 to-pink-300 bg-clip-text text-transparent">
+                  Learn twice as deep.
+                </span>
+              </>
+            )}
           </h1>
         </div>
       )}
 
-      <main className="relative z-10 max-w-7xl mx-auto px-8 pb-8 pt-4 space-y-4">
-        {/* Top row: avatar | visuals */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <AvatarStage
-            ref={stageRef}
-            onStatusChange={setAvatarLive}
-            onSpeakingChange={setSpeaking}
-            onListeningChange={setListening}
-            onTurn={appendTranscript}
-            listening={listening}
-          />
-          <VisualCanvas visual={visual} />
-        </div>
-
-        {/* Suggested prompts (only when idle or empty) */}
-        {(heroVisible || !avatarLive) && (
-          <SuggestedPrompts disabled={!avatarLive} onPick={sendFromUser} />
-        )}
-
-        {/* Transcript + controls bottom strip */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
-          <div className="glass rounded-2xl flex flex-col min-h-[180px] max-h-[260px]">
-            <div className="px-5 pt-3 pb-2 flex items-center justify-between border-b border-white/5">
-              <div className="text-xs uppercase tracking-widest text-neutral-500">Transcript</div>
-              <div className="text-[10px] text-neutral-600 tabular-nums">
-                {transcript.length} turn{transcript.length === 1 ? '' : 's'}
-              </div>
-            </div>
-            <TranscriptPanel entries={transcript} />
+      <main
+        className={
+          'relative z-10 mx-auto px-6 pb-32 space-y-4 transition-all duration-700 ease-out ' +
+          (effectiveLive ? 'max-w-[1600px] pt-16' : 'max-w-7xl pt-4')
+        }
+      >
+        <div className="flex gap-6 items-stretch justify-center">
+          <div
+            className={
+              'transition-all duration-700 ease-out flex-shrink-0 ' +
+              (effectiveLive ? 'w-1/2 max-w-none' : 'w-full max-w-4xl')
+            }
+          >
+            {mode === 'learn' ? (
+              <AvatarStage
+                ref={stageRef}
+                onStatusChange={setAvatarLive}
+                onSpeakingChange={setSpeaking}
+                onListeningChange={setListening}
+                onTurn={appendTranscript}
+                listening={listening}
+                mockLive={mockLive}
+                mode={mode}
+              />
+            ) : (
+              <TeachStage
+                ref={stageRef}
+                onStatusChange={setAvatarLive}
+                onSpeakingChange={setSpeaking}
+                onListeningChange={setListening}
+                onTurn={appendTranscript}
+                mockLive={mockLive}
+              />
+            )}
           </div>
 
-          <div className="flex flex-col gap-3">
-            <TextInput disabled={!avatarLive} onSend={sendFromUser} />
+          <div
+            className={
+              'transition-all duration-700 ease-out overflow-hidden ' +
+              (effectiveLive ? 'w-1/2 opacity-100' : 'w-0 opacity-0')
+            }
+          >
+            <VisualCanvas visual={visual} />
+          </div>
+        </div>
+
+        {/* Controls: only when live */}
+        <div
+          className={
+            'transition-all duration-500 ease-out max-w-2xl mx-auto ' +
+            (effectiveLive ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-3 pointer-events-none')
+          }
+        >
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <TextInput disabled={!effectiveLive} onSend={sendFromUser} />
             <MicButton
-              avatarLive={avatarLive}
+              avatarLive={effectiveLive}
               speaking={speaking}
               onInterrupt={() => stageRef.current?.interrupt()}
             />
           </div>
         </div>
       </main>
+
+      {/* Bottom-center End session bar */}
+      <div
+        className={
+          'fixed bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none transition-all duration-500 ' +
+          (effectiveLive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4')
+        }
+      >
+        <button
+          onClick={endSession}
+          className="pointer-events-auto flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500 hover:bg-red-400 text-white text-sm font-semibold shadow-[0_8px_30px_-4px_rgba(239,68,68,0.6)] transition-all hover:scale-105"
+        >
+          <span className="w-2 h-2 rounded-sm bg-white" />
+          End session
+        </button>
+      </div>
+
+      <TranscriptDrawer
+        open={transcriptOpen}
+        onClose={() => setTranscriptOpen(false)}
+        entries={transcript}
+      />
+
+      {IS_MOCK && (
+        <MockControls
+          mode={mode}
+          live={mockLive}
+          onStartFakeSession={() => { setMockLive(true); setAvatarLive(true); }}
+          onEndFakeSession={endSession}
+          onUserTurn={appendTranscript}
+          onAgentTurn={appendTranscript}
+        />
+      )}
+    </div>
+  );
+}
+
+function ModeTabs({ mode, onChange, disabled }: { mode: AppMode; onChange: (m: AppMode) => void; disabled?: boolean }) {
+  const tabs: { key: AppMode; label: string; sub: string }[] = [
+    { key: 'learn', label: 'Learn', sub: 'tutor teaches you' },
+    { key: 'teach', label: 'Teach', sub: 'you teach a kid' },
+  ];
+  return (
+    <div className="flex items-center gap-1 p-1 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm">
+      {tabs.map((t) => {
+        const active = mode === t.key;
+        return (
+          <button
+            key={t.key}
+            disabled={disabled}
+            onClick={() => onChange(t.key)}
+            title={disabled ? 'End session to switch modes' : t.sub}
+            className={
+              'px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all ' +
+              (active
+                ? (t.key === 'learn' ? 'bg-sky-400 text-neutral-950' : 'bg-amber-300 text-neutral-950')
+                : 'text-neutral-400 hover:text-neutral-100') +
+              (disabled && !active ? ' opacity-30 cursor-not-allowed' : '')
+            }
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

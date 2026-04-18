@@ -1,5 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { useHeyGenAvatar, type AvatarStatus, type AvatarTurnEvent } from '../lib/heygen';
+import { useHeyGenAvatar, type AvatarStatus, type AvatarTurnEvent, type AppMode } from '../lib/heygen';
+import { IS_MOCK } from '../lib/mockMode';
+
+// Preview still of the stock LiveAvatar (Ann Therapist). Shown before session connects.
+const AVATAR_PREVIEW_URL =
+  'https://files2.heygen.ai/avatar/v3/75e0a87b7fd94f0981ff398b593dd47f_45570/preview_talk_4.webp';
 
 type Props = {
   onStatusChange?: (live: boolean) => void;
@@ -7,6 +12,9 @@ type Props = {
   onListeningChange?: (listening: boolean) => void;
   onTurn?: (event: AvatarTurnEvent) => void;
   listening?: boolean;
+  /** Mock mode: bypass real HeyGen session, show preview as fake live. */
+  mockLive?: boolean;
+  mode?: AppMode;
 };
 
 export type AvatarStageHandle = {
@@ -21,16 +29,24 @@ export type AvatarStageHandle = {
 const IDLE_AUTO_DISCONNECT_MS = 90_000;
 
 export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarStage(
-  { onStatusChange, onSpeakingChange, onListeningChange, onTurn, listening },
+  { onStatusChange, onSpeakingChange, onListeningChange, onTurn, listening, mockLive, mode = 'learn' },
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const { status, error, isSpeaking, connect, stop, interrupt, sendMessage } = useHeyGenAvatar(videoRef, {
-    onTurn,
-    onListeningChange,
-  });
-  const [elapsed, setElapsed] = useState(0);
+  const real = useHeyGenAvatar(videoRef, { onTurn, onListeningChange, mode });
+
+  // In mock mode, present a fake status machine without touching HeyGen.
+  const status: AvatarStatus = IS_MOCK ? (mockLive ? 'live' : 'idle') : real.status;
+  const error = IS_MOCK ? null : real.error;
+  const isSpeaking = IS_MOCK ? false : real.isSpeaking;
   const live = status === 'live';
+
+  const connect = IS_MOCK ? () => {} : real.connect;
+  const stop = IS_MOCK ? async () => {} : real.stop;
+  const interrupt = IS_MOCK ? () => {} : real.interrupt;
+  const sendMessage = IS_MOCK ? () => {} : real.sendMessage;
+
+  const [elapsed, setElapsed] = useState(0);
 
   useImperativeHandle(
     ref,
@@ -75,12 +91,26 @@ export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarS
         }
       />
       <div className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] bg-neutral-950">
+        {/* Preview image shown in idle/connecting states, becomes transparent once live */}
+        <img
+          src={AVATAR_PREVIEW_URL}
+          alt=""
+          aria-hidden
+          className={
+            'absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ' +
+            (status === 'live' ? 'opacity-0' : 'opacity-100')
+          }
+        />
+        {/* Gradient so the Start button reads clearly on top of the preview */}
+        {status !== 'live' && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+        )}
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted={false}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover relative"
           onClick={(e) => {
             const v = e.currentTarget;
             if (v.paused) v.play().catch(() => {});
@@ -94,19 +124,9 @@ export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarS
           {status === 'error' && <Overlay text={error ?? 'Stream error'} tone="error" />}
         </div>
 
-        <StatusPill status={status} />
+        {status !== 'idle' && <StatusPill status={status} />}
 
-        {status === 'live' && (
-          <>
-            <SessionTimer seconds={elapsed} />
-            <button
-              onClick={() => stop()}
-              className="absolute bottom-4 right-4 text-[11px] px-3 py-1.5 rounded-full bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 backdrop-blur-sm pointer-events-auto"
-            >
-              end session
-            </button>
-          </>
-        )}
+        {status === 'live' && <SessionTimer seconds={elapsed} />}
       </div>
     </div>
   );
@@ -117,13 +137,13 @@ function IdleStartButton({ onStart }: { onStart: () => void }) {
     <div className="flex flex-col items-center gap-3 pointer-events-auto">
       <button
         onClick={onStart}
-        className="px-6 py-3 rounded-full bg-sky-400 hover:bg-sky-300 text-neutral-950 font-semibold text-sm shadow-[0_0_32px_rgba(125,211,252,0.5)] transition-transform hover:scale-105"
+        className="group flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white/95 hover:bg-white text-neutral-900 font-semibold text-sm shadow-[0_10px_40px_-5px_rgba(125,211,252,0.5)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_-5px_rgba(125,211,252,0.7)]"
       >
-        ▶ Start session
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden>
+          <polygon points="6,4 20,12 6,20" />
+        </svg>
+        Start session
       </button>
-      <div className="text-[10px] text-amber-300/80 font-medium tracking-wide">
-        consumes free-tier credits
-      </div>
     </div>
   );
 }

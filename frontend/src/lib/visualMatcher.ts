@@ -4,7 +4,7 @@
 export type Visual =
   | { kind: 'equation'; latex: string; caption?: string }
   | { kind: 'plot'; fn: 'sin' | 'cos' | 'parabola' | 'exponential' | 'line'; caption?: string }
-  | { kind: 'callout'; title: string; body: string }
+  | { kind: 'callout'; title: string; body: string; illo?: 'newton1' | 'newton3' | 'entropy' }
   | { kind: 'diagram'; name: 'pythagoras' | 'solar_system' | 'photosynthesis' };
 
 type Rule = { test: RegExp; visual: Visual };
@@ -26,9 +26,9 @@ const RULES: Rule[] = [
   { test: /\blinear function|slope-intercept/i, visual: { kind: 'plot', fn: 'line', caption: 'y = mx + b' } },
 
   // Laws / concepts → callouts
-  { test: /newton'?s first law/i, visual: { kind: 'callout', title: "Newton's First Law", body: 'An object at rest stays at rest, and an object in motion stays in motion, unless acted on by a net force.' } },
-  { test: /newton'?s third law/i, visual: { kind: 'callout', title: "Newton's Third Law", body: 'For every action, there is an equal and opposite reaction.' } },
-  { test: /second law of thermodynamic/i, visual: { kind: 'callout', title: 'Second Law of Thermodynamics', body: 'The total entropy of an isolated system never decreases over time.' } },
+  { test: /newton'?s first law|first law of motion|law of inertia/i, visual: { kind: 'callout', title: "Newton's First Law", body: 'An object at rest stays at rest, and an object in motion stays in motion, unless acted on by a net force.', illo: 'newton1' } },
+  { test: /newton'?s third law|action and reaction/i, visual: { kind: 'callout', title: "Newton's Third Law", body: 'For every action, there is an equal and opposite reaction.', illo: 'newton3' } },
+  { test: /second law of thermodynamic|entropy/i, visual: { kind: 'callout', title: 'Second Law of Thermodynamics', body: 'The total entropy of an isolated system never decreases over time.', illo: 'entropy' } },
   { test: /speed of light/i, visual: { kind: 'equation', latex: 'c \\approx 299{,}792{,}458\\ \\text{m/s}', caption: 'Speed of light in vacuum' } },
 
   // Diagrams

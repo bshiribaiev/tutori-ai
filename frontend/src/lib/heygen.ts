@@ -8,8 +8,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
 
-async function fetchSessionToken(): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/session/start`, { method: 'POST' });
+export type AppMode = 'learn' | 'teach';
+
+async function fetchSessionToken(mode: AppMode): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/session/start`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  });
   if (!res.ok) throw new Error(`session/start ${res.status}: ${await res.text()}`);
   const json = await res.json();
   if (!json.session_token) throw new Error('no session_token in response');
@@ -25,11 +31,12 @@ export type AvatarTurnEvent =
 type HookOptions = {
   onTurn?: (event: AvatarTurnEvent) => void;
   onListeningChange?: (listening: boolean) => void;
+  mode?: AppMode;
 };
 
 export function useHeyGenAvatar(
   videoRef: React.RefObject<HTMLVideoElement | null>,
-  { onTurn, onListeningChange }: HookOptions = {},
+  { onTurn, onListeningChange, mode = 'learn' }: HookOptions = {},
 ) {
   const [status, setStatus] = useState<AvatarStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +53,7 @@ export function useHeyGenAvatar(
     setStatus('connecting');
     setError(null);
     try {
-      const sessionToken = await fetchSessionToken();
+      const sessionToken = await fetchSessionToken(mode);
       // voiceChat:true → mic captured by the LiveAvatar session.
       // HeyGen forwards audio to EL Agent (server-side via secret_id).
       // Agent processes STT+LLM+TTS and pipes audio back to HeyGen for lip-sync.
@@ -108,8 +115,16 @@ export function useHeyGenAvatar(
   }, []);
 
   useEffect(() => {
-    return () => {
+    // Best-effort cleanup on tab close / navigation so we don't leak billed session time.
+    const cleanup = () => {
       sessionRef.current?.stop().catch(() => {});
+    };
+    window.addEventListener('pagehide', cleanup);
+    window.addEventListener('beforeunload', cleanup);
+    return () => {
+      window.removeEventListener('pagehide', cleanup);
+      window.removeEventListener('beforeunload', cleanup);
+      cleanup();
     };
   }, []);
 

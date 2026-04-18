@@ -34,7 +34,7 @@ export function TextInput({ disabled, onSend }: Props) {
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()}
         disabled={disabled}
-        placeholder={disabled ? 'Start a session to ask in text' : 'Or type a question…'}
+        placeholder="Type a question…"
         className="flex-1 bg-transparent outline-none text-sm text-neutral-100 placeholder:text-neutral-500 disabled:cursor-not-allowed"
       />
       <button

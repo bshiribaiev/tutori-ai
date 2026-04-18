@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "register-secret": "tsx src/setup/register-secret.ts",
-    "register-tavily-tool": "tsx src/setup/register-tavily-tool.ts"
+    "register-tavily-tool": "tsx src/setup/register-tavily-tool.ts",
+    "create-student-agent": "tsx src/setup/create-student-agent.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.0.0",
