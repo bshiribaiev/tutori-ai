@@ -36,6 +36,9 @@ function coerceVisualSpec(params: Record<string, unknown>): VisualSpec | null {
   if (type === 'svg' && typeof params.html === 'string') {
     return { type: 'svg', html: params.html, title };
   }
+  if (type === 'html' && typeof params.html === 'string') {
+    return { type: 'html', html: params.html, title };
+  }
   return null;
 }
 

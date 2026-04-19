@@ -1,6 +1,7 @@
 import { MermaidRenderer } from './renderers/MermaidRenderer';
 import { DesmosRenderer } from './renderers/DesmosRenderer';
 import { SvgRenderer } from './renderers/SvgRenderer';
+import { HtmlRenderer } from './renderers/HtmlRenderer';
 import type { VisualSpec } from '../lib/visualSpec';
 
 type Props = { spec: VisualSpec | null };
@@ -32,6 +33,7 @@ export function VisualRenderer({ spec }: Props) {
         {spec.type === 'mermaid' && <MermaidRenderer code={spec.code} />}
         {spec.type === 'desmos' && <DesmosRenderer expressions={spec.expressions} />}
         {spec.type === 'svg' && <SvgRenderer html={spec.html} />}
+        {spec.type === 'html' && <HtmlRenderer html={spec.html} />}
       </div>
     </div>
   );
