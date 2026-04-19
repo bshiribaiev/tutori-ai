@@ -7,9 +7,9 @@ import { MicButton } from './components/MicButton';
 import { TranscriptDrawer } from './components/TranscriptDrawer';
 import { AmbientParticles } from './components/AmbientParticles';
 import { TextInput } from './components/TextInput';
-import { VisualCanvas } from './components/VisualCanvas';
+import { VisualRenderer } from './components/VisualRenderer';
 import { MockControls } from './components/MockControls';
-import { matchVisual, type Visual } from './lib/visualMatcher';
+import type { VisualSpec } from './lib/visualSpec';
 import { IS_MOCK } from './lib/mockMode';
 import type { AppMode } from './lib/heygen';
 import { AvatarPicker } from './components/AvatarPicker';
@@ -34,7 +34,7 @@ function TutoriAI() {
   const [avatarLive, setAvatarLive] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [visual, setVisual] = useState<Visual | null>(null);
+  const [visual, setVisual] = useState<VisualSpec | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [mockLive, setMockLive] = useState(false);
   const [mode, setMode] = useState<AppMode>('learn');
@@ -44,11 +44,12 @@ function TutoriAI() {
 
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
     setTranscript((prev) => [...prev, entry]);
-    // Visuals only apply in Learn mode — Mila is a listener in Teach.
+  }, []);
+
+  const handleRenderVisual = useCallback((spec: VisualSpec) => {
     if (mode !== 'learn') return;
-    const v = matchVisual(entry.text);
-    console.log('[tutoriai]', entry.role, 'turn:', entry.text, '→ visual:', v?.kind ?? 'none');
-    if (v) setVisual(v);
+    console.log('[tutoriai] render_visual →', spec.type, spec.title ?? '');
+    setVisual(spec);
   }, [mode]);
 
   const sendFromUser = useCallback(
@@ -181,6 +182,7 @@ function TutoriAI() {
                 onSpeakingChange={setSpeaking}
                 onListeningChange={setListening}
                 onTurn={appendTranscript}
+                onRenderVisual={handleRenderVisual}
                 mockLive={mockLive}
               />
             )}
@@ -212,7 +214,7 @@ function TutoriAI() {
               (effectiveLive && mode === 'learn' ? 'w-1/2 opacity-100' : 'w-0 opacity-0')
             }
           >
-            <VisualCanvas visual={visual} />
+            <VisualRenderer spec={visual} />
           </div>
         </div>
 
