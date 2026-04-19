@@ -16,7 +16,7 @@ export const LearnPreviewStage = forwardRef<AvatarStageHandle, Props>(function L
   ref,
 ) {
   const { status, error, isSpeaking, isListening, start, stop } = useELDirect({
-    role: 'tutor',
+    role: 'tutor-alex',
     onTurn,
     onModeChange: (mode) => {
       onSpeakingChange?.(mode === 'speaking');
@@ -58,7 +58,7 @@ export const LearnPreviewStage = forwardRef<AvatarStageHandle, Props>(function L
             <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden>
               <polygon points="6,4 20,12 6,20" />
             </svg>
-            Start preview
+            Start session
           </button>
         </div>
       )}

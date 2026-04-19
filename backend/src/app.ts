@@ -17,6 +17,7 @@ app.get('/api/config', (_req, res) => {
   res.json({
     elevenlabs_agent_id: process.env.ELEVENLABS_AGENT_ID ?? null,
     elevenlabs_agent_id_student: process.env.ELEVENLABS_AGENT_ID_STUDENT ?? null,
+    elevenlabs_agent_id_tutor_alex: process.env.ELEVENLABS_AGENT_ID_TUTOR_ALEX ?? null,
   });
 });
 

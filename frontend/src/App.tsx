@@ -44,11 +44,12 @@ function TutoriAI() {
 
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
     setTranscript((prev) => [...prev, entry]);
-    // Match visual on BOTH user questions and agent answers — fire early.
+    // Visuals only apply in Learn mode — Mila is a listener in Teach.
+    if (mode !== 'learn') return;
     const v = matchVisual(entry.text);
     console.log('[tutoriai]', entry.role, 'turn:', entry.text, '→ visual:', v?.kind ?? 'none');
     if (v) setVisual(v);
-  }, []);
+  }, [mode]);
 
   const sendFromUser = useCallback(
     (text: string) => {
@@ -64,10 +65,10 @@ function TutoriAI() {
     if (IS_MOCK) {
       setMockLive(false);
       setAvatarLive(false);
-      setVisual(null);
     } else {
       stageRef.current?.stop();
     }
+    setVisual(null);
     // Only open feedback for Teach mode and when there's actual teaching content.
     if (wasTeaching && transcript.filter((t) => t.role === 'user').length > 0) {
       setFeedbackOpen(true);
@@ -98,6 +99,8 @@ function TutoriAI() {
           onChange={(m) => {
             setMode(m);
             setSelectedTutor(null);
+            setVisual(null);
+            setTranscript([]);
           }}
           disabled={effectiveLive}
         />
@@ -153,21 +156,11 @@ function TutoriAI() {
           <div
             className={
               'transition-all duration-700 ease-out flex-shrink-0 ' +
-              (effectiveLive ? 'w-1/2 max-w-none' : 'w-full max-w-4xl')
+              (effectiveLive && mode === 'learn' ? 'w-1/2 max-w-none' : 'w-full max-w-4xl')
             }
           >
             {mode === 'learn' && !selectedTutor && (
               <TutorPicker onPick={setSelectedTutor} />
-            )}
-            {mode === 'learn' && selectedTutor && !effectiveLive && (
-              <div className="absolute -top-10 right-0 z-20">
-                <button
-                  onClick={() => setSelectedTutor(null)}
-                  className="text-xs text-neutral-400 hover:text-neutral-100 transition-colors"
-                >
-                  ← choose another tutor
-                </button>
-              </div>
             )}
             {mode === 'learn' && selectedTutor === 'ann' && (
               <AvatarStage
@@ -201,12 +194,22 @@ function TutoriAI() {
                 mockLive={mockLive}
               />
             )}
+            {mode === 'learn' && selectedTutor && !effectiveLive && (
+              <div className="flex justify-center mt-5">
+                <button
+                  onClick={() => setSelectedTutor(null)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-white/15 hover:border-sky-300/50 bg-white/[0.04] hover:bg-white/[0.08] text-sm text-neutral-200 font-medium transition-all"
+                >
+                  ← Choose another tutor
+                </button>
+              </div>
+            )}
           </div>
 
           <div
             className={
               'transition-all duration-700 ease-out overflow-hidden ' +
-              (effectiveLive ? 'w-1/2 opacity-100' : 'w-0 opacity-0')
+              (effectiveLive && mode === 'learn' ? 'w-1/2 opacity-100' : 'w-0 opacity-0')
             }
           >
             <VisualCanvas visual={visual} />

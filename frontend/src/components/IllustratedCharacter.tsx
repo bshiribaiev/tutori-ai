@@ -32,7 +32,7 @@ export function IllustratedCharacter({ role, speaking, listening }: Props) {
     : 'bg-[radial-gradient(ellipse_at_50%_30%,rgba(125,211,252,0.14),transparent_60%)]';
 
   return (
-    <div className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] bg-[radial-gradient(ellipse_at_center,#1a2030_0%,#0a0d14_70%)] flex items-center justify-center">
+    <div className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] bg-[radial-gradient(ellipse_at_center,#1a2030_0%,#0a0d14_70%)] flex items-start justify-center pt-2">
       <div className={'absolute inset-0 pointer-events-none ' + glowTone} />
 
       <svg viewBox="0 0 300 300" className={'w-[70%] h-[80%] kid-' + state} aria-label={palette.label}>
@@ -140,12 +140,6 @@ export function IllustratedCharacter({ role, speaking, listening }: Props) {
         </div>
       )}
 
-      {/* preview badge for tutor role */}
-      {role === 'tutor' && (
-        <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-sky-400/15 border border-sky-400/40 text-[10px] uppercase tracking-widest text-sky-200 font-semibold">
-          preview · free
-        </div>
-      )}
     </div>
   );
 }
