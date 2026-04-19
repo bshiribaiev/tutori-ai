@@ -101,6 +101,8 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
     setError(null);
     const t0 = performance.now();
     const ms = () => Math.round(performance.now() - t0);
+    // Reset chunk counter per session so we log sample stats at each session start.
+    (window as unknown as { __elChunk?: number }).__elChunk = 0;
     try {
       const agentId = await fetchAgentId(role);
       console.log(`[EL ${ms()}ms] startSession`, { role, agentId });
