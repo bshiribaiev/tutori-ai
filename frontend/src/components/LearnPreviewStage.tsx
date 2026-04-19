@@ -2,25 +2,24 @@ import { forwardRef, useEffect, useImperativeHandle } from 'react';
 import { IllustratedCharacter } from './IllustratedCharacter';
 import { useELDirect } from '../lib/elevenlabsDirect';
 import type { AvatarStageHandle } from './AvatarStage';
-import type { VisualSpec } from '../lib/visualSpec';
 
 type Props = {
   onStatusChange?: (live: boolean) => void;
   onSpeakingChange?: (speaking: boolean) => void;
   onListeningChange?: (listening: boolean) => void;
   onTurn?: (event: { role: 'user' | 'agent'; text: string }) => void;
-  onRenderVisual?: (spec: VisualSpec) => void;
+  visualSessionId?: string;
   mockLive?: boolean;
 };
 
 export const LearnPreviewStage = forwardRef<AvatarStageHandle, Props>(function LearnPreviewStage(
-  { onStatusChange, onSpeakingChange, onListeningChange, onTurn, onRenderVisual, mockLive },
+  { onStatusChange, onSpeakingChange, onListeningChange, onTurn, visualSessionId, mockLive },
   ref,
 ) {
   const { status, error, isSpeaking, isListening, start, stop } = useELDirect({
     role: 'tutor-alex',
     onTurn,
-    onRenderVisual,
+    visualSessionId,
     onModeChange: (mode) => {
       onSpeakingChange?.(mode === 'speaking');
       onListeningChange?.(mode === 'listening');

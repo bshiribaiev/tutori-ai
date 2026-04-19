@@ -10,11 +10,11 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
 
 export type AppMode = 'learn' | 'teach';
 
-async function fetchSessionToken(mode: AppMode): Promise<string> {
+async function fetchSessionToken(mode: AppMode, tutor?: string, visualSessionId?: string): Promise<string> {
   const res = await fetch(`${API_BASE}/api/session/start`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ mode }),
+    body: JSON.stringify({ mode, tutor, visual_session_id: visualSessionId }),
   });
   if (!res.ok) throw new Error(`session/start ${res.status}: ${await res.text()}`);
   const json = await res.json();
@@ -32,11 +32,13 @@ type HookOptions = {
   onTurn?: (event: AvatarTurnEvent) => void;
   onListeningChange?: (listening: boolean) => void;
   mode?: AppMode;
+  tutor?: string;
+  visualSessionId?: string;
 };
 
 export function useHeyGenAvatar(
   videoRef: React.RefObject<HTMLVideoElement | null>,
-  { onTurn, onListeningChange, mode = 'learn' }: HookOptions = {},
+  { onTurn, onListeningChange, mode = 'learn', tutor, visualSessionId }: HookOptions = {},
 ) {
   const [status, setStatus] = useState<AvatarStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function useHeyGenAvatar(
     setStatus('connecting');
     setError(null);
     try {
-      const sessionToken = await fetchSessionToken(mode);
+      const sessionToken = await fetchSessionToken(mode, tutor, visualSessionId);
       // voiceChat:true → mic captured by the LiveAvatar session.
       // HeyGen forwards audio to EL Agent (server-side via secret_id).
       // Agent processes STT+LLM+TTS and pipes audio back to HeyGen for lip-sync.
@@ -97,7 +99,7 @@ export function useHeyGenAvatar(
       setError(err instanceof Error ? err.message : String(err));
       sessionRef.current = null;
     }
-  }, [videoRef]);
+  }, [videoRef, mode, tutor, visualSessionId]);
 
   const interrupt = useCallback(() => {
     sessionRef.current?.interrupt();

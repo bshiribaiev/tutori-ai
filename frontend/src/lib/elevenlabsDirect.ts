@@ -1,6 +1,5 @@
 import { Conversation } from '@elevenlabs/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { VisualSpec } from './visualSpec';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
 
@@ -9,38 +8,14 @@ type TurnEvent = { role: 'user' | 'agent'; text: string };
 type Options = {
   role?: AgentRole;
   voiceIdOverride?: string;
+  visualSessionId?: string;
   onTurn?: (event: TurnEvent) => void;
   onModeChange?: (mode: 'speaking' | 'listening') => void;
-  onRenderVisual?: (spec: VisualSpec) => void;
 };
 
 export type ELDirectStatus = 'idle' | 'connecting' | 'live' | 'error';
 
 type AgentRole = 'student' | 'tutor' | 'tutor-alex';
-
-function coerceVisualSpec(params: Record<string, unknown>): VisualSpec | null {
-  const type = params.type;
-  const title = typeof params.title === 'string' ? params.title : undefined;
-  if (type === 'mermaid' && typeof params.code === 'string') {
-    return { type: 'mermaid', code: params.code, title };
-  }
-  if (type === 'desmos') {
-    const raw = params.expressions;
-    const expressions = Array.isArray(raw)
-      ? raw.filter((x): x is string => typeof x === 'string')
-      : typeof raw === 'string'
-        ? [raw]
-        : [];
-    if (expressions.length) return { type: 'desmos', expressions, title };
-  }
-  if (type === 'svg' && typeof params.html === 'string') {
-    return { type: 'svg', html: params.html, title };
-  }
-  if (type === 'html' && typeof params.html === 'string') {
-    return { type: 'html', html: params.html, title };
-  }
-  return null;
-}
 
 async function fetchAgentId(role: AgentRole): Promise<string> {
   const res = await fetch(`${API_BASE}/api/config`);
@@ -59,7 +34,7 @@ async function fetchAgentId(role: AgentRole): Promise<string> {
  * Direct ElevenLabs Agent connection from the browser — no HeyGen involved.
  * Used by Teach mode so the kid character can respond without burning LiveAvatar credits.
  */
-export function useELDirect({ role = 'student', voiceIdOverride, onTurn, onModeChange, onRenderVisual }: Options = {}) {
+export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId, onTurn, onModeChange }: Options = {}) {
   const [status, setStatus] = useState<ELDirectStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -68,10 +43,8 @@ export function useELDirect({ role = 'student', voiceIdOverride, onTurn, onModeC
 
   const onTurnRef = useRef(onTurn);
   const onModeRef = useRef(onModeChange);
-  const onVisualRef = useRef(onRenderVisual);
   useEffect(() => { onTurnRef.current = onTurn; }, [onTurn]);
   useEffect(() => { onModeRef.current = onModeChange; }, [onModeChange]);
-  useEffect(() => { onVisualRef.current = onRenderVisual; }, [onRenderVisual]);
 
   const start = useCallback(async () => {
     if (convoRef.current) return;
@@ -83,16 +56,7 @@ export function useELDirect({ role = 'student', voiceIdOverride, onTurn, onModeC
         agentId,
         connectionType: 'websocket',
         ...(voiceIdOverride ? { overrides: { tts: { voiceId: voiceIdOverride } } } : {}),
-        clientTools: {
-          render_visual: async (params: Record<string, unknown>) => {
-            const spec = coerceVisualSpec(params);
-            if (spec) {
-              onVisualRef.current?.(spec);
-              return 'rendered';
-            }
-            return 'invalid spec';
-          },
-        },
+        ...(visualSessionId ? { dynamicVariables: { visual_session_id: visualSessionId } } : {}),
         onConnect: () => setStatus('live'),
         onDisconnect: () => {
           setStatus('idle');

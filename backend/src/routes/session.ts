@@ -44,19 +44,43 @@ sessionRouter.get('/avatars', async (_req, res) => {
 // server-side so HeyGen talks to EL directly (no client-side audio relay).
 sessionRouter.post('/start', async (req, res) => {
   const key = process.env.HEYGEN_API_KEY;
-  const avatarId = process.env.HEYGEN_AVATAR_ID;
   const mode = req.body?.mode === 'teach' ? 'teach' : 'learn';
-  const agentId =
-    mode === 'teach'
-      ? process.env.ELEVENLABS_AGENT_ID_STUDENT
-      : process.env.ELEVENLABS_AGENT_ID;
+  const tutor = typeof req.body?.tutor === 'string' ? req.body.tutor : 'math';
   const secretId = process.env.ELEVENLABS_SECRET_ID;
+
+  const learnTutorMap: Record<string, { avatarEnv: string; agentEnv: string }> = {
+    math: { avatarEnv: 'HEYGEN_AVATAR_ID_MATH', agentEnv: 'ELEVENLABS_AGENT_ID_MATH' },
+    history: { avatarEnv: 'HEYGEN_AVATAR_ID_HISTORY', agentEnv: 'ELEVENLABS_AGENT_ID_HISTORY' },
+    interview: { avatarEnv: 'HEYGEN_AVATAR_ID_INTERVIEW', agentEnv: 'ELEVENLABS_AGENT_ID_INTERVIEW' },
+    english: { avatarEnv: 'HEYGEN_AVATAR_ID_ENGLISH', agentEnv: 'ELEVENLABS_AGENT_ID_ENGLISH' },
+  };
+
+  let avatarId: string | undefined;
+  let agentId: string | undefined;
+  if (mode === 'teach') {
+    avatarId = process.env.HEYGEN_AVATAR_ID;
+    agentId = process.env.ELEVENLABS_AGENT_ID_STUDENT;
+  } else {
+    const slot = learnTutorMap[tutor] ?? learnTutorMap.math;
+    avatarId = process.env[slot.avatarEnv] ?? process.env.HEYGEN_AVATAR_ID;
+    agentId = process.env[slot.agentEnv] ?? process.env.ELEVENLABS_AGENT_ID;
+  }
+
   if (!key) return res.status(500).json({ error: 'HEYGEN_API_KEY missing' });
-  if (!avatarId) return res.status(500).json({ error: 'HEYGEN_AVATAR_ID missing' });
+  if (!avatarId) return res.status(500).json({ error: `avatar id missing for ${mode}/${tutor}` });
+
+  const visualSessionId = typeof req.body?.visual_session_id === 'string' ? req.body.visual_session_id : undefined;
 
   const reqBody: Record<string, unknown> = { mode: 'LITE', avatar_id: avatarId };
   if (agentId && secretId) {
-    reqBody.elevenlabs_agent_config = { secret_id: secretId, agent_id: agentId };
+    const agentConfig: Record<string, unknown> = { secret_id: secretId, agent_id: agentId };
+    if (visualSessionId) {
+      // EL reads dynamic variables via templating in system prompt and tool params.
+      agentConfig.dynamic_variables = { visual_session_id: visualSessionId };
+      // Some HeyGen versions nest overrides differently — send both shapes.
+      agentConfig.overrides = { conversation: { dynamic_variables: { visual_session_id: visualSessionId } } };
+    }
+    reqBody.elevenlabs_agent_config = agentConfig;
   }
 
   try {

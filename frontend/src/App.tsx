@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AvatarStage, type AvatarStageHandle } from './components/AvatarStage';
 import { TeachStage } from './components/TeachStage';
 import { LearnPreviewStage } from './components/LearnPreviewStage';
@@ -18,6 +18,13 @@ import { FeedbackModal } from './components/FeedbackModal';
 const IS_PICKER =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('picker');
 
+const TUTOR_PREVIEWS: Record<Exclude<TutorKey, 'alex'>, string> = {
+  math: 'https://files2.heygen.ai/avatar/v3/75e0a87b7fd94f0981ff398b593dd47f_45570/preview_talk_4.webp',
+  history: 'https://files2.heygen.ai/avatar/v3/db2fb7fd0d044b908395a011166ab22d_45680/preview_target.webp',
+  interview: 'https://files2.heygen.ai/avatar/v3/b1ff5edbf96242e6ac9469227df40924_55360/preview_target.webp',
+  english: 'https://files2.heygen.ai/avatar/v3/2146e2c8c07045c0b3598683d4473fdd_55340/preview_target.webp',
+};
+
 export type TranscriptEntry = {
   role: 'user' | 'agent';
   text: string;
@@ -28,6 +35,8 @@ export default function App() {
   if (IS_PICKER) return <AvatarPicker />;
   return <TutoriAI />;
 }
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
 
 function TutoriAI() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -42,15 +51,36 @@ function TutoriAI() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const stageRef = useRef<AvatarStageHandle | null>(null);
 
+  // Per-session routing key for the server-tool visual webhook → SSE bridge.
+  const visualSessionId = useMemo(
+    () => (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36)),
+    [],
+  );
+
+  // Subscribe to backend SSE. Backend pushes visual specs here when the agent
+  // calls render_visual (webhook → our /api/visual/push → this stream).
+  useEffect(() => {
+    if (mode !== 'learn') return;
+    const url = `${API_BASE}/api/visual/stream?sid=${encodeURIComponent(visualSessionId)}`;
+    const es = new EventSource(url);
+    es.addEventListener('visual', (e) => {
+      try {
+        const spec = JSON.parse((e as MessageEvent).data) as VisualSpec;
+        console.log('[tutoriai] visual ←', spec.type, spec.title ?? '');
+        setVisual(spec);
+      } catch (err) {
+        console.warn('[tutoriai] bad visual payload', err);
+      }
+    });
+    es.onerror = (err) => console.warn('[tutoriai] SSE error', err);
+    return () => es.close();
+  }, [mode, visualSessionId]);
+
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
     setTranscript((prev) => [...prev, entry]);
   }, []);
-
-  const handleRenderVisual = useCallback((spec: VisualSpec) => {
-    if (mode !== 'learn') return;
-    console.log('[tutoriai] render_visual →', spec.type, spec.title ?? '');
-    setVisual(spec);
-  }, [mode]);
 
   const sendFromUser = useCallback(
     (text: string) => {
@@ -163,8 +193,20 @@ function TutoriAI() {
             {mode === 'learn' && !selectedTutor && (
               <TutorPicker onPick={setSelectedTutor} />
             )}
-            {mode === 'learn' && selectedTutor === 'ann' && (
+            {mode === 'learn' && selectedTutor === 'alex' && (
+              <LearnPreviewStage
+                ref={stageRef}
+                onStatusChange={setAvatarLive}
+                onSpeakingChange={setSpeaking}
+                onListeningChange={setListening}
+                onTurn={appendTranscript}
+                visualSessionId={visualSessionId}
+                mockLive={mockLive}
+              />
+            )}
+            {mode === 'learn' && selectedTutor && selectedTutor !== 'alex' && (
               <AvatarStage
+                key={selectedTutor}
                 ref={stageRef}
                 onStatusChange={setAvatarLive}
                 onSpeakingChange={setSpeaking}
@@ -173,17 +215,9 @@ function TutoriAI() {
                 listening={listening}
                 mockLive={mockLive}
                 mode={mode}
-              />
-            )}
-            {mode === 'learn' && selectedTutor === 'alex' && (
-              <LearnPreviewStage
-                ref={stageRef}
-                onStatusChange={setAvatarLive}
-                onSpeakingChange={setSpeaking}
-                onListeningChange={setListening}
-                onTurn={appendTranscript}
-                onRenderVisual={handleRenderVisual}
-                mockLive={mockLive}
+                tutor={selectedTutor}
+                previewUrl={TUTOR_PREVIEWS[selectedTutor]}
+                visualSessionId={visualSessionId}
               />
             )}
             {mode === 'teach' && (

@@ -2,8 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useHeyGenAvatar, type AvatarStatus, type AvatarTurnEvent, type AppMode } from '../lib/heygen';
 import { IS_MOCK } from '../lib/mockMode';
 
-// Preview still of the stock LiveAvatar (Ann Therapist). Shown before session connects.
-const AVATAR_PREVIEW_URL =
+// Preview still shown before a HeyGen session connects. Defaults to Ann Therapist
+// but callers (TutorPicker-driven flows) can pass a different face per tutor.
+const DEFAULT_AVATAR_PREVIEW_URL =
   'https://files2.heygen.ai/avatar/v3/75e0a87b7fd94f0981ff398b593dd47f_45570/preview_talk_4.webp';
 
 type Props = {
@@ -15,6 +16,10 @@ type Props = {
   /** Mock mode: bypass real HeyGen session, show preview as fake live. */
   mockLive?: boolean;
   mode?: AppMode;
+  tutor?: string;
+  previewUrl?: string;
+  tutorLabel?: string;
+  visualSessionId?: string;
 };
 
 export type AvatarStageHandle = {
@@ -29,11 +34,13 @@ export type AvatarStageHandle = {
 const IDLE_AUTO_DISCONNECT_MS = 90_000;
 
 export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarStage(
-  { onStatusChange, onSpeakingChange, onListeningChange, onTurn, listening, mockLive, mode = 'learn' },
+  { onStatusChange, onSpeakingChange, onListeningChange, onTurn, listening, mockLive, mode = 'learn', tutor, previewUrl, tutorLabel, visualSessionId },
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const real = useHeyGenAvatar(videoRef, { onTurn, onListeningChange, mode });
+  const real = useHeyGenAvatar(videoRef, { onTurn, onListeningChange, mode, tutor, visualSessionId });
+  const effectivePreview = previewUrl ?? DEFAULT_AVATAR_PREVIEW_URL;
+  void tutorLabel;
 
   // In mock mode, present a fake status machine without touching HeyGen.
   const status: AvatarStatus = IS_MOCK ? (mockLive ? 'live' : 'idle') : real.status;
@@ -93,7 +100,7 @@ export const AvatarStage = forwardRef<AvatarStageHandle, Props>(function AvatarS
       <div className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] bg-neutral-950">
         {/* Preview image shown in idle/connecting states, becomes transparent once live */}
         <img
-          src={AVATAR_PREVIEW_URL}
+          src={effectivePreview}
           alt=""
           aria-hidden
           className={
