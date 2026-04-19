@@ -90,6 +90,7 @@ const toolConfig = {
   description,
   expects_response: true,
   response_timeout_secs: 3,
+  force_pre_tool_speech: true,
   parameters: {
     type: 'object',
     required: ['type', 'title'],
