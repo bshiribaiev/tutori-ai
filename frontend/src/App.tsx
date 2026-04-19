@@ -61,8 +61,12 @@ function TutoriAI() {
 
   // Subscribe to backend SSE. Backend pushes visual specs here when the agent
   // calls render_visual (webhook → our /api/visual/push → this stream).
+  // Alex uses a client-side render_visual tool, not the webhook, so he doesn't
+  // need the SSE — and opening it against Vercel Hobby (30–60s function cap)
+  // creates a long-pending request that blocks EL audio on the same origin.
   useEffect(() => {
     if (mode !== 'learn') return;
+    if (!selectedTutor || selectedTutor === 'alex') return;
     const url = `${API_BASE}/api/visual/stream?sid=${encodeURIComponent(visualSessionId)}`;
     const es = new EventSource(url);
     es.addEventListener('visual', (e) => {
@@ -76,7 +80,7 @@ function TutoriAI() {
     });
     es.onerror = (err) => console.warn('[tutoriai] SSE error', err);
     return () => es.close();
-  }, [mode, visualSessionId]);
+  }, [mode, selectedTutor, visualSessionId]);
 
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
     setTranscript((prev) => [...prev, entry]);
