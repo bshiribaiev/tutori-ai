@@ -85,7 +85,7 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
       console.log(`[EL ${ms()}ms] startSession`, { role, agentId });
       const convo = await Conversation.startSession({
         agentId,
-        connectionType: 'websocket',
+        connectionType: 'webrtc',
         ...(voiceIdOverride ? { overrides: { tts: { voiceId: voiceIdOverride } } } : {}),
         ...(visualSessionId ? { dynamicVariables: { visual_session_id: visualSessionId } } : {}),
         clientTools: {
