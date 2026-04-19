@@ -125,29 +125,32 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
           setStatus('live');
         },
         onAudio: (b64: string) => {
-          console.log(`[EL ${ms()}ms] onAudio chunk bytes=${b64?.length ?? 0}`);
-          // Decode first chunk and sample real PCM values so we can tell
-          // silence-from-server apart from silence-from-client.
-          if (!(window as unknown as { __elSampled?: boolean }).__elSampled) {
-            (window as unknown as { __elSampled?: boolean }).__elSampled = true;
+          // Scan the ENTIRE chunk for max amplitude so we can distinguish
+          // "whole chunk is silence" from "just the first 1000 samples are
+          // padding silence". Also log chunk 1 and 2 separately.
+          const w = window as unknown as { __elChunk?: number };
+          w.__elChunk = (w.__elChunk ?? 0) + 1;
+          if (w.__elChunk! <= 3) {
             try {
               const bin = atob(b64);
               const buf = new ArrayBuffer(bin.length);
               const u8 = new Uint8Array(buf);
               for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
               const s16 = new Int16Array(buf);
-              const len = Math.min(s16.length, 1000);
-              let max = 0, sum = 0, nonzero = 0;
-              for (let i = 0; i < len; i++) {
+              let max = 0, sum = 0, nonzero = 0, firstRealIdx = -1;
+              for (let i = 0; i < s16.length; i++) {
                 const v = Math.abs(s16[i]);
                 if (v > max) max = v;
                 sum += v;
                 if (v > 0) nonzero++;
+                if (firstRealIdx < 0 && v > 1000) firstRealIdx = i;
               }
-              console.log(`[EL ${ms()}ms] PCM SAMPLE: len=${s16.length} first100bytes=${Array.from(s16.slice(0, 6))} max=${max} avg=${(sum / len).toFixed(1)} nonzero=${nonzero}/${len}`);
+              console.log(`[EL ${ms()}ms] chunk#${w.__elChunk} bytes=${b64.length} samples=${s16.length} max=${max} avg=${(sum/s16.length).toFixed(1)} nonzero=${nonzero} firstBigSampleAt=${firstRealIdx}`);
             } catch (err) {
               console.warn('pcm decode failed', err);
             }
+          } else {
+            console.log(`[EL ${ms()}ms] onAudio chunk bytes=${b64?.length ?? 0}`);
           }
         },
         onDisconnect: () => {
@@ -195,51 +198,9 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
         // Build a parallel path: create our own AudioContext, pipe the same
         // MediaStream to its destination. If the <audio> path is broken, this
         // one still delivers audio to the speakers.
-        try {
-          const stream = el.srcObject as MediaStream | null;
-          const tracks = stream?.getAudioTracks() ?? [];
-          console.log(`[EL ${ms()}ms] audio element state paused=${el.paused} currentTime=${el.currentTime} readyState=${el.readyState} muted=${el.muted} volume=${el.volume}`);
-          console.log(`[EL ${ms()}ms] stream tracks=${tracks.length}`, tracks.map(t => ({ enabled: t.enabled, muted: t.muted, readyState: t.readyState, kind: t.kind })));
-
-          // Chrome quirk workaround: reassign srcObject after the full audio
-          // graph is wired. Some Chrome versions capture the stream's "silent"
-          // state at assignment time and never re-check for tracks appearing.
-          if (stream) {
-            el.srcObject = null;
-            el.srcObject = stream;
-            const p2 = el.play();
-            if (p2 && typeof p2.catch === 'function') {
-              p2.then(() => console.log(`[EL ${ms()}ms] audio.play() after re-attach OK`))
-                .catch(err => console.warn(`[EL ${ms()}ms] audio.play() after re-attach failed`, err?.name));
-            }
-          }
-
-          if (stream && tracks.length > 0) {
-            const Ctx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
-              ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-            if (Ctx) {
-              const parallel = new Ctx();
-              if (parallel.state === 'suspended') parallel.resume();
-              const src = parallel.createMediaStreamSource(stream);
-              src.connect(parallel.destination);
-              console.log(`[EL ${ms()}ms] parallel audio path wired (ctx.state=${parallel.state}, rate=${parallel.sampleRate})`);
-              (convo as unknown as { _parallelCtx?: AudioContext })._parallelCtx = parallel;
-            }
-          } else {
-            console.log(`[EL ${ms()}ms] no MediaStream on <audio> yet — cannot wire parallel path`);
-          }
-
-          // Also poll audio element & track state every 500ms for 10s
-          let ticks = 0;
-          const interval = setInterval(() => {
-            ticks++;
-            const t = tracks[0];
-            console.log(`[EL ${ms()}ms] tick paused=${el.paused} ct=${el.currentTime.toFixed(2)} track=${t ? `${t.readyState}/muted=${t.muted}` : 'n/a'}`);
-            if (ticks >= 20) clearInterval(interval);
-          }, 500);
-        } catch (err) {
-          console.warn(`[EL ${ms()}ms] parallel audio path failed`, err);
-        }
+        // Previous parallel-AudioContext workaround caused echo because the
+        // SDK's <audio> element actually works on real turns. Removed. If
+        // audio drops again, investigate upstream (server-side TTS).
       });
 
       // Poll the worklet's output volume; log the first non-zero sample so we
@@ -281,10 +242,8 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
   }, []);
 
   const stop = useCallback(async () => {
-    const parallel = (convoRef.current as unknown as { _parallelCtx?: AudioContext } | null)?._parallelCtx;
     await convoRef.current?.endSession();
     convoRef.current = null;
-    if (parallel && parallel.state !== 'closed') await parallel.close().catch(() => {});
     setStatus('idle');
     setIsSpeaking(false);
     setIsListening(false);
