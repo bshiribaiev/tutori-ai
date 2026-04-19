@@ -166,6 +166,31 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
           p.then(() => console.log(`[EL ${ms()}ms] audio.play() OK`, el))
            .catch((err) => console.warn(`[EL ${ms()}ms] audio.play() blocked`, err?.name, err?.message));
         }
+
+        // Chrome quirk: the SDK's hidden <audio> backed by a MediaStream
+        // srcObject sometimes silently drops audio even when play() resolves.
+        // Build a parallel path: create our own AudioContext, pipe the same
+        // MediaStream to its destination. If the <audio> path is broken, this
+        // one still delivers audio to the speakers.
+        try {
+          const stream = el.srcObject as MediaStream | null;
+          if (stream && stream.getAudioTracks().length > 0) {
+            const Ctx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
+              ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+            if (Ctx) {
+              const parallel = new Ctx();
+              if (parallel.state === 'suspended') parallel.resume();
+              const src = parallel.createMediaStreamSource(stream);
+              src.connect(parallel.destination);
+              console.log(`[EL ${ms()}ms] parallel audio path wired (ctx.state=${parallel.state}, rate=${parallel.sampleRate})`);
+              (convo as unknown as { _parallelCtx?: AudioContext })._parallelCtx = parallel;
+            }
+          } else {
+            console.log(`[EL ${ms()}ms] no MediaStream on <audio> yet — cannot wire parallel path`);
+          }
+        } catch (err) {
+          console.warn(`[EL ${ms()}ms] parallel audio path failed`, err);
+        }
       });
 
       // Poll the worklet's output volume; log the first non-zero sample so we
@@ -207,8 +232,10 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
   }, []);
 
   const stop = useCallback(async () => {
+    const parallel = (convoRef.current as unknown as { _parallelCtx?: AudioContext } | null)?._parallelCtx;
     await convoRef.current?.endSession();
     convoRef.current = null;
+    if (parallel && parallel.state !== 'closed') await parallel.close().catch(() => {});
     setStatus('idle');
     setIsSpeaking(false);
     setIsListening(false);
