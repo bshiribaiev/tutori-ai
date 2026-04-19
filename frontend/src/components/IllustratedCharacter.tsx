@@ -6,9 +6,11 @@ type Props = {
   role: 'student' | 'tutor';
   speaking?: boolean;
   listening?: boolean;
+  /** When true, fills the parent instead of enforcing 16:9 — used in the tutor picker card. */
+  fill?: boolean;
 };
 
-export function IllustratedCharacter({ role, speaking, listening }: Props) {
+export function IllustratedCharacter({ role, speaking, listening, fill }: Props) {
   const state = speaking ? 'speaking' : listening ? 'listening' : 'idle';
 
   const palette = role === 'student'
@@ -32,7 +34,10 @@ export function IllustratedCharacter({ role, speaking, listening }: Props) {
     : 'bg-[radial-gradient(ellipse_at_50%_30%,rgba(125,211,252,0.14),transparent_60%)]';
 
   return (
-    <div className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] bg-[radial-gradient(ellipse_at_center,#1a2030_0%,#0a0d14_70%)] flex items-start justify-center pt-2">
+    <div className={
+      'relative rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] bg-[radial-gradient(ellipse_at_center,#1a2030_0%,#0a0d14_70%)] flex items-start justify-center pt-2 ' +
+      (fill ? 'w-full h-full' : 'aspect-video')
+    }>
       <div className={'absolute inset-0 pointer-events-none ' + glowTone} />
 
       <svg viewBox="0 0 300 300" className={'w-[70%] h-[80%] kid-' + state} aria-label={palette.label}>

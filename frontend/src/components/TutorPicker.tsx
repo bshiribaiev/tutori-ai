@@ -64,7 +64,7 @@ export function TutorPicker({ onPick }: Props) {
           >
             <div className="aspect-[4/5] relative">
               {t.kind === 'illustrated' ? (
-                <IllustratedCharacter role="tutor" />
+                <IllustratedCharacter role="tutor" fill />
               ) : (
                 <>
                   <img src={t.previewUrl} alt={t.name} className="w-full h-full object-cover" />
