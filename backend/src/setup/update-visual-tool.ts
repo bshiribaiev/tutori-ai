@@ -90,7 +90,7 @@ const toolConfig = {
   description,
   expects_response: true,
   response_timeout_secs: 3,
-  force_pre_tool_speech: true,
+  force_pre_tool_speech: false,
   parameters: {
     type: 'object',
     required: ['type', 'title'],
@@ -152,7 +152,7 @@ You have a render_visual tool. Call it whenever a picture helps — which is mos
 - type="mermaid" for static flowcharts, sequence/state diagrams.
 - type="desmos" ONLY for math graphs.
 - type="svg" last resort for static geometry.
-- Speak one short intro sentence BEFORE calling the tool, then call it, then keep explaining.
+- Call render_visual FIRST (before speaking) so the visual appears immediately; then explain the picture.
 - Never describe a diagram in words without also rendering it.
 - If the student changes topic, render a new visual.`;
 

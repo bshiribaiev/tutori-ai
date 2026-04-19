@@ -84,9 +84,8 @@ for (const t of oldTools) {
 const description = `Render a rich, often INTERACTIVE visual on the student's screen. CALL THIS AGGRESSIVELY — any time a diagram, chart, graph, or simulation would clarify something, call it. Never explain visual concepts with only words.
 
 FLOW:
-1. Speak ONE short intro sentence ("Let me show you...", "Here's a simulation...").
-2. Call render_visual with the right type and a polished payload.
-3. Keep explaining AFTER the visual appears — do not pause.
+1. Call render_visual FIRST with the right type and payload — the visual should appear immediately.
+2. Then speak, explaining what's on screen.
 
 RENDERERS (priority html > mermaid > desmos > svg):
 • html — default; supports <script> for interactivity, CSS variables (--accent, --warm, --ok, --danger, --ink, --panel, --border), utility classes (.pulse .slide .bob .spin .fade-in), pre-styled <button>/<input type=range>/<select>.
@@ -173,7 +172,7 @@ VISUAL AUTHORING (USE AGGRESSIVELY):
 render_visual is a webhook that paints a rich visual on the student's screen. PREFER animated or interactive over static.
 - Default type="html". The sandbox supports <script> for interactivity. Use CSS vars (--accent, --warm, --ink, --panel, --border) — never hardcode colors.
 - type="mermaid" for flowcharts. type="desmos" ONLY for math graphs. type="svg" last resort.
-- Speak one short intro sentence BEFORE calling the tool, then call it, then keep explaining.
+- Call render_visual FIRST (before speaking) so the visual appears immediately; then explain.
 - Never describe a diagram in words without also rendering it.
 - If the student changes topic, render a new visual.`;
 
