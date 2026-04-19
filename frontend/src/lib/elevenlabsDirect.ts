@@ -76,6 +76,27 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
 
   const start = useCallback(async () => {
     if (convoRef.current) return;
+
+    // Unlock autoplay synchronously within the click gesture. The EL SDK
+    // creates its AudioContext later (after async awaits), by which point the
+    // gesture may have expired, leaving the context suspended and audio
+    // queued silently. Priming a context + resuming here persists audio
+    // permission for this origin for the rest of the session.
+    try {
+      const Ctx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
+        ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Ctx) {
+        const primer = new Ctx();
+        if (primer.state === 'suspended') await primer.resume();
+        // Play 1 silent sample to fully unlock on Safari/mobile.
+        const buf = primer.createBuffer(1, 1, 22050);
+        const src = primer.createBufferSource();
+        src.buffer = buf;
+        src.connect(primer.destination);
+        src.start(0);
+      }
+    } catch { /* ignore */ }
+
     setStatus('connecting');
     setError(null);
     const t0 = performance.now();
@@ -85,7 +106,7 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
       console.log(`[EL ${ms()}ms] startSession`, { role, agentId });
       const convo = await Conversation.startSession({
         agentId,
-        connectionType: 'webrtc',
+        connectionType: 'websocket',
         ...(voiceIdOverride ? { overrides: { tts: { voiceId: voiceIdOverride } } } : {}),
         ...(visualSessionId ? { dynamicVariables: { visual_session_id: visualSessionId } } : {}),
         clientTools: {
