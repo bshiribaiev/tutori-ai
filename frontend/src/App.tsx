@@ -82,6 +82,12 @@ function TutoriAI() {
     setTranscript((prev) => [...prev, entry]);
   }, []);
 
+  const handleRenderVisual = useCallback((spec: VisualSpec) => {
+    if (mode !== 'learn') return;
+    console.log('[tutoriai] client render_visual →', spec.type, spec.title ?? '');
+    setVisual(spec);
+  }, [mode]);
+
   const sendFromUser = useCallback(
     (text: string) => {
       if (!stageRef.current?.live && !mockLive) return;
@@ -200,6 +206,7 @@ function TutoriAI() {
                 onSpeakingChange={setSpeaking}
                 onListeningChange={setListening}
                 onTurn={appendTranscript}
+                onRenderVisual={handleRenderVisual}
                 visualSessionId={visualSessionId}
                 mockLive={mockLive}
               />
