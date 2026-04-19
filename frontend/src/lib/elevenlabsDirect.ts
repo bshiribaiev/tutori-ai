@@ -149,6 +149,21 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
         },
       });
       console.log(`[EL ${ms()}ms] startSession resolved`);
+
+      // The SDK routes audio through a hidden <audio> element (for setSinkId
+      // support) and sets autoplay=true. Chrome's autoplay policy treats
+      // autoplay as a *hint* — an element created after several awaits in a
+      // promise chain may still be gated, holding audio buffered until a
+      // gesture. Explicitly call play() on any hidden audio element the SDK
+      // just appended. This accounts for the ~30s "audio stall" we saw.
+      const audios = document.querySelectorAll<HTMLAudioElement>('audio');
+      audios.forEach((el) => {
+        const p = el.play();
+        if (p && typeof p.catch === 'function') {
+          p.then(() => console.log(`[EL ${ms()}ms] audio.play() OK`, el))
+           .catch((err) => console.warn(`[EL ${ms()}ms] audio.play() blocked`, err?.name, err?.message));
+        }
+      });
       convoRef.current = convo;
     } catch (err) {
       setStatus('error');
