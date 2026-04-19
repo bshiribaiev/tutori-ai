@@ -126,6 +126,29 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
         },
         onAudio: (b64: string) => {
           console.log(`[EL ${ms()}ms] onAudio chunk bytes=${b64?.length ?? 0}`);
+          // Decode first chunk and sample real PCM values so we can tell
+          // silence-from-server apart from silence-from-client.
+          if (!(window as unknown as { __elSampled?: boolean }).__elSampled) {
+            (window as unknown as { __elSampled?: boolean }).__elSampled = true;
+            try {
+              const bin = atob(b64);
+              const buf = new ArrayBuffer(bin.length);
+              const u8 = new Uint8Array(buf);
+              for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+              const s16 = new Int16Array(buf);
+              const len = Math.min(s16.length, 1000);
+              let max = 0, sum = 0, nonzero = 0;
+              for (let i = 0; i < len; i++) {
+                const v = Math.abs(s16[i]);
+                if (v > max) max = v;
+                sum += v;
+                if (v > 0) nonzero++;
+              }
+              console.log(`[EL ${ms()}ms] PCM SAMPLE: len=${s16.length} first100bytes=${Array.from(s16.slice(0, 6))} max=${max} avg=${(sum / len).toFixed(1)} nonzero=${nonzero}/${len}`);
+            } catch (err) {
+              console.warn('pcm decode failed', err);
+            }
+          }
         },
         onDisconnect: () => {
           console.log(`[EL ${ms()}ms] onDisconnect`);
@@ -174,7 +197,24 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
         // one still delivers audio to the speakers.
         try {
           const stream = el.srcObject as MediaStream | null;
-          if (stream && stream.getAudioTracks().length > 0) {
+          const tracks = stream?.getAudioTracks() ?? [];
+          console.log(`[EL ${ms()}ms] audio element state paused=${el.paused} currentTime=${el.currentTime} readyState=${el.readyState} muted=${el.muted} volume=${el.volume}`);
+          console.log(`[EL ${ms()}ms] stream tracks=${tracks.length}`, tracks.map(t => ({ enabled: t.enabled, muted: t.muted, readyState: t.readyState, kind: t.kind })));
+
+          // Chrome quirk workaround: reassign srcObject after the full audio
+          // graph is wired. Some Chrome versions capture the stream's "silent"
+          // state at assignment time and never re-check for tracks appearing.
+          if (stream) {
+            el.srcObject = null;
+            el.srcObject = stream;
+            const p2 = el.play();
+            if (p2 && typeof p2.catch === 'function') {
+              p2.then(() => console.log(`[EL ${ms()}ms] audio.play() after re-attach OK`))
+                .catch(err => console.warn(`[EL ${ms()}ms] audio.play() after re-attach failed`, err?.name));
+            }
+          }
+
+          if (stream && tracks.length > 0) {
             const Ctx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
               ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
             if (Ctx) {
@@ -188,6 +228,15 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
           } else {
             console.log(`[EL ${ms()}ms] no MediaStream on <audio> yet — cannot wire parallel path`);
           }
+
+          // Also poll audio element & track state every 500ms for 10s
+          let ticks = 0;
+          const interval = setInterval(() => {
+            ticks++;
+            const t = tracks[0];
+            console.log(`[EL ${ms()}ms] tick paused=${el.paused} ct=${el.currentTime.toFixed(2)} track=${t ? `${t.readyState}/muted=${t.muted}` : 'n/a'}`);
+            if (ticks >= 20) clearInterval(interval);
+          }, 500);
         } catch (err) {
           console.warn(`[EL ${ms()}ms] parallel audio path failed`, err);
         }
