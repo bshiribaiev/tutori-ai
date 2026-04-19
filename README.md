@@ -36,8 +36,8 @@ Backend mints the LiveKit session token so `HEYGEN_API_KEY` never reaches the br
 
 | | |
 |---|---|
-| Frontend | React 19, Vite, Tailwind v4, `@elevenlabs/client`, LiveKit client |
-| Backend | Express on Node, Vercel serverless or local + cloudflared |
+| Frontend | React 19, Vite 8, TypeScript 6, Tailwind v4, `@elevenlabs/client`, LiveKit client |
+| Backend | Express 4 on Node (ESM), Vercel serverless or local + tunnel (ngrok / cloudflared) |
 | Voice | ElevenLabs Convai (STT + LLM + TTS + tool orchestration) |
 | Avatars | HeyGen LiveAvatar (LITE mode) |
 | Grounding | Tavily Search |
@@ -77,13 +77,15 @@ cp backend/.env.example backend/.env    # if you have an example
 
 # One-time provisioning (writes to ElevenLabs, not this repo)
 cd backend
-npm run register-secret              # binds EL key to HeyGen → ELEVENLABS_SECRET_ID
-npx tsx src/setup/create-alex-agent.ts
-npx tsx src/setup/create-student-agent.ts
-npx tsx src/setup/create-specialized-agents.ts
-npx tsx src/setup/register-tavily-tool.ts
-npx tsx src/setup/migrate-visual-tool.ts
-npx tsx src/setup/add-client-visual-tool-alex.ts
+npm run register-secret                        # binds EL key to HeyGen → ELEVENLABS_SECRET_ID
+npx tsx src/setup/create-alex-agent.ts         # generalist tutor agent
+npx tsx src/setup/create-student-agent.ts      # Mila (Teach mode)
+npx tsx src/setup/create-specialized-agents.ts # Math, History, Interview, English
+npx tsx src/setup/register-tavily-tool.ts      # Tavily search tool for agents
+npx tsx src/setup/register-visual-tool.ts      # server-side visual tool
+npx tsx src/setup/migrate-visual-tool.ts       # migrate visual tool schema
+npx tsx src/setup/add-client-visual-tool-alex.ts  # client-side visual tool for Alex
+# npx tsx src/setup/update-visual-tool.ts      # (optional) update tool config
 
 # Run
 (cd backend && npm run dev)    # :3001
