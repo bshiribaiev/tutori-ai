@@ -260,7 +260,7 @@ function TutoriAI() {
           <div
             className={
               'transition-all duration-700 ease-out overflow-hidden ' +
-              (effectiveLive && mode === 'learn' ? 'w-1/2 opacity-100' : 'w-0 opacity-0')
+              ((effectiveLive || visual) && mode === 'learn' ? 'w-1/2 opacity-100' : 'w-0 opacity-0')
             }
           >
             <VisualRenderer spec={visual} />

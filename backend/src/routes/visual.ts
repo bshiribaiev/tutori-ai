@@ -45,6 +45,7 @@ visualRouter.get('/stream', (req, res) => {
 // hackathon with one user at a time that routes correctly anyway.
 visualRouter.post('/push', (req, res) => {
   const body = req.body ?? {};
+  console.log('[visual] push raw body keys:', Object.keys(body), 'type=', body.type, 'title=', body.title, 'html_len=', body.html?.length ?? 0, 'code_len=', body.code?.length ?? 0);
   const sid: string | undefined = body.visual_session_id;
   const { visual_session_id: _drop, ...spec } = body;
   void _drop;

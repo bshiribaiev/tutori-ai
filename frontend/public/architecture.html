@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TutoriAI — System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #faf6ec;
+    --panel: #ffffff;
+    --ink: #1e293b;
+    --muted: #64748b;
+    --ws: #1864ab;
+    --rtc: #c92a2a;
+    --sse: #2b8a3e;
+    --rest: #d9480f;
+    --client: #5f3dc4;
+    --internal: #495057;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Kalam', 'Comic Sans MS', cursive;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 28px 32px 60px;
+  }
+  header { max-width: 1660px; margin: 0 auto 18px; }
+  h1 { font-size: 2.6rem; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
+  .subtitle { color: var(--muted); font-size: 1.1rem; margin-top: 4px; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 18px 28px;
+    margin: 18px 0 20px;
+    font-size: 0.98rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 10px; }
+  .legend-line { width: 44px; height: 0; border-top: 3px solid; }
+  .legend-line.dashed { border-top-style: dashed; }
+
+  #diagram-wrap {
+    max-width: 1660px; margin: 0 auto;
+    background: var(--panel);
+    border: 2.5px solid var(--ink);
+    border-radius: 10px;
+    padding: 14px;
+    overflow: auto;
+    box-shadow: 6px 6px 0 #1e293b20;
+  }
+  svg { display: block; margin: 0 auto; }
+  svg text {
+    font-family: 'Kalam', 'Comic Sans MS', cursive;
+    fill: var(--ink);
+  }
+
+  .notes {
+    max-width: 1660px; margin: 28px auto 0;
+    background: var(--panel);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 22px 28px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.98rem;
+    line-height: 1.55;
+  }
+  .notes h2 {
+    font-family: 'Kalam', cursive;
+    font-size: 1.6rem;
+    margin: 0 0 12px;
+  }
+  .notes h3 {
+    font-family: 'Kalam', cursive;
+    font-size: 1.2rem;
+    margin: 20px 0 6px;
+  }
+  .notes code {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  .notes ul { margin: 6px 0 12px; padding-left: 22px; }
+  .notes li { margin-bottom: 6px; }
+  .pill {
+    display: inline-block;
+    padding: 1px 10px;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    font-weight: 600;
+    margin: 0 4px;
+    border: 1.5px solid;
+  }
+  .p-ws { color: var(--ws); border-color: var(--ws); background: #e7f1fb; }
+  .p-rtc { color: var(--rtc); border-color: var(--rtc); background: #fbecec; }
+  .p-sse { color: var(--sse); border-color: var(--sse); background: #e6f3ea; }
+  .p-rest { color: var(--rest); border-color: var(--rest); background: #fdecd9; }
+  .p-client { color: var(--client); border-color: var(--client); background: #efe9fb; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TutoriAI — System Architecture</h1>
+  <div class="subtitle">Voice-first tutor · ElevenLabs Convai × HeyGen LiveAvatar LITE · Hack Brooklyn</div>
+  <div class="legend">
+    <div class="legend-item"><span class="legend-line" style="border-color: var(--ws)"></span>WebSocket (binary PCM, bidirectional)</div>
+    <div class="legend-item"><span class="legend-line" style="border-color: var(--rtc)"></span>WebRTC via LiveKit (audio + video)</div>
+    <div class="legend-item"><span class="legend-line" style="border-color: var(--sse)"></span>SSE (server → client text stream)</div>
+    <div class="legend-item"><span class="legend-line" style="border-color: var(--rest)"></span>HTTPS REST / webhook POST</div>
+    <div class="legend-item"><span class="legend-line dashed" style="border-color: var(--internal)"></span>Server ↔ server (internal)</div>
+    <div class="legend-item"><span class="legend-line" style="border-color: var(--client)"></span>Client-tool callback (in-process)</div>
+  </div>
+</header>
+
+<div id="diagram-wrap">
+  <svg id="diagram" width="1600" height="1500" viewBox="0 0 1600 1500" aria-label="TutoriAI architecture diagram"></svg>
+</div>
+
+<div class="notes">
+  <h2>How the two voice paths actually work</h2>
+
+  <h3><span class="pill p-ws">WebSocket</span> Browser ⟷ ElevenLabs Convai — used by Alex &amp; Mila</h3>
+  <ul>
+    <li>Opened in-browser by <code>@elevenlabs/client</code> via <code>Conversation.startSession({ agentId, connectionType: 'websocket' })</code>.</li>
+    <li>Bidirectional. Uplink: mic PCM frames. Downlink: TTS audio chunks, transcripts (<code>onMessage</code>), mode changes (<code>onModeChange</code>), and <strong>client-tool invocations</strong>.</li>
+    <li>TTS audio is routed through a hidden <code>&lt;audio&gt;</code> element the SDK appends. We explicitly call <code>.play()</code> on it after <code>startSession</code> resolves to defeat Chrome's autoplay gating (fixes the 30-second first-token stall).</li>
+    <li><code>dynamicVariables: { visual_session_id }</code> is passed at session start so the agent can forward it to any server tool it calls.</li>
+  </ul>
+
+  <h3><span class="pill p-rtc">WebRTC/LiveKit</span> Browser ⟷ HeyGen — used by Ann, Shawn, Katya, Graham</h3>
+  <ul>
+    <li>Frontend mints a LiveKit room token via <code>POST /api/session/start</code> (backend wraps HeyGen's <code>/streaming/new</code> + <code>/streaming/start</code>).</li>
+    <li>Browser joins the LiveKit room and receives the HeyGen avatar's rendered face + lipsync'd audio as standard WebRTC media tracks.</li>
+    <li>In <strong>LITE mode</strong>, HeyGen does <em>only</em> face rendering. STT/LLM/TTS is handled by a linked EL Convai agent referenced in <code>elevenlabs_agent_config</code> on the streaming session.</li>
+    <li>Because the return channel to the browser is audio+video only, <strong>EL client tools cannot fire browser code on this path</strong> — that's why HeyGen tutors need the SSE bridge for visuals.</li>
+  </ul>
+
+  <h3><span class="pill" style="color:var(--internal); border-color:var(--internal); background:#eceef0">server↔server</span> HeyGen ⟷ ElevenLabs (internal, not reachable from browser)</h3>
+  <ul>
+    <li>HeyGen forwards inbound mic audio to EL for STT + LLM, receives TTS audio back, and muxes it into the lipsync rendering pipeline before shipping over LiveKit.</li>
+    <li>Dynamic variables set in <code>elevenlabs_agent_config.dynamic_variables</code> at session creation reach the EL agent over this link — which is how <code>visual_session_id</code> makes it into server-tool webhook bodies on the HeyGen path.</li>
+  </ul>
+
+  <h3><span class="pill p-sse">SSE</span> Backend → Browser — the visual delivery bridge</h3>
+  <ul>
+    <li>Browser generates a UUID (<code>visual_session_id</code>) per mount, opens <code>GET /api/visual/stream?sid=&lt;uuid&gt;</code>. Backend stores <code>Map&lt;sid, Response&gt;</code>, sends 20-second pings.</li>
+    <li>When an EL server-tool <code>render_visual</code> webhook arrives at <code>POST /api/visual/push</code>, backend writes <code>event: visual\ndata: {...spec}\n\n</code> to the matching held-open Response.</li>
+    <li>Fallback: if sid is unknown, broadcast to every open client (hackathon-safe since one user at a time).</li>
+    <li>⚠ Requires single-instance backend — Vercel's multi-instance serverless breaks the in-memory map. Demo uses cloudflared tunnel to a local process.</li>
+  </ul>
+
+  <h3><span class="pill p-rest">REST / webhook</span> Everything else</h3>
+  <ul>
+    <li>Browser → Backend: <code>/api/config</code>, <code>/api/session/start</code>, <code>/api/feedback</code>.</li>
+    <li>EL → Backend: server-tool webhooks <code>/api/visual/push</code>, <code>/api/tavily</code>. Dynamic variables like <code>visual_session_id</code> are injected by EL into the POST body.</li>
+    <li>Backend → Tavily (grounding) + Gemini 2.5-flash (Teach grader) + HeyGen REST (session mint / credit balance).</li>
+  </ul>
+
+  <h3><span class="pill p-client">client-tool</span> Alex's fast path — no network hop for visuals</h3>
+  <ul>
+    <li>Alex alone has a <em>client</em>-type <code>render_visual</code> tool attached. When Alex invokes it, EL sends the call payload over the existing WebSocket; the SDK's <code>clientTools.render_visual</code> handler runs synchronously in the browser and pushes the spec straight to <code>VisualRenderer</code> via <code>setVisual(spec)</code>.</li>
+    <li>Zero backend round-trip, zero SSE. This is why Alex's visuals land the moment he mentions them.</li>
+  </ul>
+
+  <h3>Agents on ElevenLabs' servers (source of truth, not in repo)</h3>
+  <ul>
+    <li><strong>Alex</strong> — learn tutor, illustrated avatar, Dylan voice. Tools: <code>search_web</code>, <code>render_visual</code> (client).</li>
+    <li><strong>Mila</strong> — teach-mode student. No tools.</li>
+    <li><strong>Ann</strong> (Math), <strong>Shawn</strong> (History), <strong>Graham</strong> (English) — HeyGen LITE. Tools: <code>search_web</code>, <code>render_visual</code> (server/webhook).</li>
+    <li><strong>Katya</strong> (Interview coach) — HeyGen LITE. Tool: <code>search_web</code> only. Visual tool detached — interview prep doesn't need diagrams.</li>
+  </ul>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.js"></script>
+<script>
+  const svg = document.getElementById('diagram');
+  const rc = rough.svg(svg);
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const C = {
+    ws: '#1864ab',
+    rtc: '#c92a2a',
+    sse: '#2b8a3e',
+    rest: '#d9480f',
+    client: '#5f3dc4',
+    internal: '#495057',
+    ink: '#1e293b',
+  };
+
+  function box(x, y, w, h, fill, o = {}) {
+    svg.appendChild(rc.rectangle(x, y, w, h, {
+      fill, fillStyle: 'solid',
+      roughness: o.rough ?? 1.1,
+      stroke: o.stroke ?? C.ink,
+      strokeWidth: o.sw ?? 2,
+      ...o,
+    }));
+  }
+
+  function txt(x, y, s, o = {}) {
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', x);
+    t.setAttribute('y', y);
+    t.setAttribute('font-family', "'Kalam', 'Comic Sans MS', cursive");
+    t.setAttribute('font-size', o.size ?? 16);
+    t.setAttribute('font-weight', o.weight ?? 400);
+    t.setAttribute('fill', o.fill ?? C.ink);
+    t.setAttribute('text-anchor', o.anchor ?? 'start');
+    if (o.italic) t.setAttribute('font-style', 'italic');
+    t.textContent = s;
+    svg.appendChild(t);
+    return t;
+  }
+
+  // Orthogonal arrow through waypoints. Points = [[x,y], ...]. Arrowhead at last point.
+  function arrow(points, color, o = {}) {
+    const opts = {
+      stroke: color,
+      strokeWidth: o.sw ?? 2.4,
+      roughness: 1,
+      ...(o.dashed ? { strokeLineDash: [9, 6] } : {}),
+    };
+    svg.appendChild(rc.linearPath(points, opts));
+    // arrowhead
+    const [p1, p2] = [points[points.length - 2], points[points.length - 1]];
+    drawHead(p1, p2, opts);
+    if (o.doubleEnded) {
+      drawHead(points[1], points[0], opts);
+    }
+  }
+
+  function drawHead([x1, y1], [x2, y2], opts) {
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const L = 14;
+    const ax = x2 - L * Math.cos(ang - Math.PI / 6);
+    const ay = y2 - L * Math.sin(ang - Math.PI / 6);
+    const bx = x2 - L * Math.cos(ang + Math.PI / 6);
+    const by = y2 - L * Math.sin(ang + Math.PI / 6);
+    svg.appendChild(rc.line(x2, y2, ax, ay, opts));
+    svg.appendChild(rc.line(x2, y2, bx, by, opts));
+  }
+
+  // Label with white-stroke halo for readability over crossing lines.
+  function label(x, y, s, color, o = {}) {
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', x);
+    t.setAttribute('y', y);
+    t.setAttribute('font-family', "'Kalam', 'Comic Sans MS', cursive");
+    t.setAttribute('font-size', o.size ?? 14);
+    t.setAttribute('font-weight', o.weight ?? 700);
+    t.setAttribute('fill', color);
+    t.setAttribute('text-anchor', o.anchor ?? 'middle');
+    t.setAttribute('paint-order', 'stroke');
+    t.setAttribute('stroke', '#ffffff');
+    t.setAttribute('stroke-width', '5');
+    t.setAttribute('stroke-linejoin', 'round');
+    t.textContent = s;
+    svg.appendChild(t);
+  }
+
+  function agent(x, y, name, role, color, tools) {
+    box(x, y, 210, 108, color);
+    txt(x + 105, y + 30, name, { size: 20, weight: 700, anchor: 'middle' });
+    txt(x + 105, y + 52, role, { size: 12, italic: true, anchor: 'middle', fill: '#334155' });
+    const lines = tools.split('\n');
+    lines.forEach((ln, i) => {
+      txt(x + 105, y + 78 + i * 15, ln, { size: 11, anchor: 'middle', fill: '#475569' });
+    });
+  }
+
+  // ============ BROWSER ============
+  box(80, 60, 1440, 200, '#fff3bf');
+  txt(800, 94, 'BROWSER', { size: 24, weight: 700, anchor: 'middle' });
+  txt(800, 116, 'React 19 · Vite · Tailwind v4 · @elevenlabs/client · LiveKit client', { size: 13, italic: true, anchor: 'middle', fill: '#475569' });
+
+  // inner boxes
+  box(110, 150, 260, 90, '#fff', { rough: 0.7 });
+  txt(240, 178, 'TutorPicker', { size: 17, weight: 700, anchor: 'middle' });
+  txt(240, 200, 'Mode · Tutor · session init', { size: 12, anchor: 'middle', fill: '#475569' });
+  txt(240, 222, 'Learn ⇄ Teach', { size: 12, anchor: 'middle', fill: '#475569' });
+
+  box(400, 150, 270, 90, '#ffd8a8', { rough: 0.7 });
+  txt(535, 178, 'useELDirect', { size: 17, weight: 700, anchor: 'middle' });
+  txt(535, 200, '@elevenlabs/client', { size: 12, italic: true, anchor: 'middle' });
+  txt(535, 222, 'Alex · Mila', { size: 12, anchor: 'middle', fill: '#475569' });
+
+  box(700, 150, 270, 90, '#ffc9c9', { rough: 0.7 });
+  txt(835, 178, 'useHeyGenAvatar', { size: 17, weight: 700, anchor: 'middle' });
+  txt(835, 200, 'LiveKit room client', { size: 12, italic: true, anchor: 'middle' });
+  txt(835, 222, 'Ann · Shawn · Katya · Graham', { size: 12, anchor: 'middle', fill: '#475569' });
+
+  box(1000, 150, 490, 90, '#b2f2bb', { rough: 0.7 });
+  txt(1245, 178, 'VisualRenderer', { size: 17, weight: 700, anchor: 'middle' });
+  txt(1245, 200, 'mermaid · desmos · html · svg', { size: 12, anchor: 'middle' });
+  txt(1245, 222, '← subscribed via EventSource (SSE)', { size: 12, italic: true, anchor: 'middle', fill: '#2b8a3e' });
+
+  // ============ ELEVENLABS CONVAI ============
+  box(80, 460, 890, 480, '#a5d8ff');
+  txt(525, 496, 'ELEVENLABS CONVAI (cloud)', { size: 22, weight: 700, anchor: 'middle' });
+  txt(525, 518, 'STT · LLM · TTS · tool orchestration', { size: 13, italic: true, anchor: 'middle', fill: '#334155' });
+
+  // vertical divider
+  svg.appendChild(rc.line(330, 545, 330, 910, { stroke: C.ink, strokeWidth: 1.5, strokeLineDash: [6, 5], roughness: 0.5 }));
+  txt(200, 560, 'Direct-WS agents', { size: 14, weight: 700, anchor: 'middle', fill: C.ws });
+  txt(650, 560, 'HeyGen-LITE agents', { size: 14, weight: 700, anchor: 'middle', fill: C.rtc });
+
+  // direct column
+  agent(110, 580, 'Alex', 'Learn · illustrated', '#ffec99',
+    'search_web + render_visual\n(CLIENT tool — in-browser)');
+  agent(110, 720, 'Mila', 'Teach · curious learner', '#ffec99',
+    '(no tools — she asks)');
+
+  // HeyGen column — 2×2 grid
+  agent(360, 580, 'Ann',    'Math',      '#d0ebff', 'search_web\n+ render_visual (server)');
+  agent(590, 580, 'Shawn',  'History',   '#d0ebff', 'search_web\n+ render_visual (server)');
+  agent(360, 720, 'Katya',  'Interview', '#d0ebff', 'search_web\n(visuals detached)');
+  agent(590, 720, 'Graham', 'English',   '#d0ebff', 'search_web\n+ render_visual (server)');
+
+  // footer inside EL box
+  txt(525, 915, 'per-agent: prompt · tts.voice_id · tool attachments (source of truth on EL servers)',
+    { size: 11, italic: true, anchor: 'middle', fill: '#334155' });
+
+  // ============ HEYGEN ============
+  box(1050, 460, 470, 200, '#ffc9c9');
+  txt(1285, 496, 'HEYGEN', { size: 22, weight: 700, anchor: 'middle' });
+  txt(1285, 520, 'LiveAvatar · LITE mode', { size: 13, italic: true, anchor: 'middle' });
+  txt(1285, 548, 'renders face + lip-sync onto EL audio', { size: 13, anchor: 'middle' });
+  txt(1285, 570, 'serves audio + video over LiveKit room', { size: 13, anchor: 'middle' });
+  txt(1285, 600, '⚠ no data channel back to browser', { size: 12, italic: true, anchor: 'middle', fill: '#c92a2a' });
+  txt(1285, 628, '2-min / session · 10-min / mo (free tier)', { size: 11, anchor: 'middle', fill: '#868e96' });
+
+  // ============ BACKEND ============
+  box(80, 1000, 950, 340, '#b2f2bb');
+  txt(555, 1036, 'BACKEND — Express', { size: 22, weight: 700, anchor: 'middle' });
+  txt(555, 1058, 'local src/server.ts (+ cloudflared tunnel)  ·  prod api/[...slug].ts (Vercel)', { size: 12, italic: true, anchor: 'middle', fill: '#334155' });
+
+  const routes = [
+    ['GET  /api/config',             'tutor registry + agent IDs to frontend'],
+    ['POST /api/session/start',      'mint HeyGen LiveAvatar + LiveKit token'],
+    ['GET  /api/visual/stream?sid=', 'SSE subscription · 20s pings · per-sid Response'],
+    ['POST /api/visual/push',        'EL webhook → write  event: visual  to SSE client'],
+    ['POST /api/tavily',             'EL webhook → Tavily search grounding'],
+    ['POST /api/feedback',           'Teach grader: Tavily → Gemini 2.5 → verdict JSON'],
+  ];
+  routes.forEach((r, i) => {
+    const y = 1090 + i * 36;
+    box(110, y, 880, 30, '#ffffff', { rough: 0.7, sw: 1.5 });
+    txt(125, y + 21, r[0], { size: 13, weight: 700, fill: '#0f172a' });
+    txt(445, y + 21, r[1], { size: 13, italic: true, fill: '#475569' });
+  });
+
+  // ============ EXTERNAL SERVICES ============
+  box(1090, 1000, 430, 100, '#d0bfff');
+  txt(1305, 1032, 'TAVILY', { size: 20, weight: 700, anchor: 'middle' });
+  txt(1305, 1058, 'web search grounding', { size: 13, italic: true, anchor: 'middle' });
+  txt(1305, 1080, 'used by tutors &amp; Teach grader', { size: 12, anchor: 'middle' });
+
+  box(1090, 1120, 430, 100, '#d0bfff');
+  txt(1305, 1152, 'GEMINI 2.5-flash', { size: 20, weight: 700, anchor: 'middle' });
+  txt(1305, 1178, 'Teach-mode grader LLM', { size: 13, italic: true, anchor: 'middle' });
+  txt(1305, 1200, 'correct / clarify / incorrect', { size: 12, anchor: 'middle' });
+
+  box(1090, 1240, 430, 100, '#d0bfff');
+  txt(1305, 1272, 'HEYGEN REST', { size: 20, weight: 700, anchor: 'middle' });
+  txt(1305, 1298, '/streaming/new · /streaming/start', { size: 12, italic: true, anchor: 'middle' });
+  txt(1305, 1320, 'session mint · credit balance', { size: 12, anchor: 'middle' });
+
+  // ============ ARROWS ============
+
+  // 1) Browser useELDirect ⟷ EL (WebSocket, bidirectional)
+  arrow([[535, 240], [535, 400], [200, 400], [200, 460]], C.ws, { sw: 3, doubleEnded: true });
+  label(370, 390, 'WebSocket', C.ws, { size: 15 });
+  label(370, 408, 'PCM audio + tool events', C.ws, { size: 12 });
+
+  // 2) Browser useHeyGenAvatar ⟷ HeyGen (WebRTC via LiveKit, bidirectional)
+  arrow([[835, 240], [835, 430], [1285, 430], [1285, 460]], C.rtc, { sw: 3, doubleEnded: true });
+  label(1060, 420, 'WebRTC via LiveKit', C.rtc, { size: 15 });
+  label(1060, 438, '(audio + video media tracks)', C.rtc, { size: 12 });
+
+  // 3) EL ↔ HeyGen (server-side internal, dashed)
+  arrow([[970, 595], [1050, 595]], C.internal, { dashed: true, doubleEnded: true, sw: 2 });
+  label(1010, 580, 'server ↔ server', C.internal, { size: 11 });
+  label(1010, 615, 'STT / LLM / TTS', C.internal, { size: 11 });
+
+  // 4) EL → Backend (server-tool webhooks)
+  arrow([[520, 940], [520, 1000]], C.rest, { sw: 3 });
+  label(520, 975, 'webhook POST   render_visual · search_web', C.rest, { size: 13 });
+
+  // 5) Backend → Browser (SSE) — routes up the middle, around HeyGen on the right
+  arrow([[760, 1000], [760, 340], [1245, 340], [1245, 240]], C.sse, { sw: 3 });
+  label(1000, 328, 'SSE   event: visual   /api/visual/stream', C.sse, { size: 13 });
+
+  // 6) Browser → Backend (REST: /config, /session/start, /feedback) — left side, dashed
+  arrow([[240, 240], [240, 985], [110, 985], [110, 1020]], C.rest, { sw: 2, dashed: true });
+  label(60, 600, 'REST', C.rest, { size: 12, anchor: 'start' });
+  label(60, 618, '/config', C.rest, { size: 11, anchor: 'start' });
+  label(60, 634, '/session/start', C.rest, { size: 11, anchor: 'start' });
+  label(60, 650, '/feedback', C.rest, { size: 11, anchor: 'start' });
+
+  // 7) Backend → Tavily
+  arrow([[1030, 1050], [1090, 1050]], C.rest, { sw: 2.2 });
+  // 8) Backend → Gemini
+  arrow([[1030, 1170], [1090, 1170]], C.rest, { sw: 2.2 });
+  // 9) Backend → HeyGen REST
+  arrow([[1030, 1290], [1090, 1290]], C.rest, { sw: 2.2 });
+
+  // 10) Alex client-tool highlight — annotated on the WS arrow, as a separate purple callout
+  // Curve: Alex (215, 688) up and over to VisualRenderer (1245, 240)
+  arrow([[215, 688], [40, 688], [40, 300], [1000, 300], [1245, 240]], C.client, { sw: 2.2, dashed: true });
+  label(500, 290, 'Alex-only: client-tool render_visual dispatches directly to VisualRenderer (no backend hop)', C.client, { size: 12 });
+
+</script>
+
+</body>
+</html>
