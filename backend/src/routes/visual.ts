@@ -40,28 +40,40 @@ visualRouter.get('/stream', (req, res) => {
 });
 
 // Webhook for EL server tool. EL posts {visual_session_id, type, title, ...payload}.
+// HeyGen's dynamic-variable forwarding is flaky, so if the sid is missing or
+// doesn't match, broadcast to every currently-open SSE client. For a
+// hackathon with one user at a time that routes correctly anyway.
 visualRouter.post('/push', (req, res) => {
   const body = req.body ?? {};
   const sid: string | undefined = body.visual_session_id;
-  if (!sid) return res.status(400).json({ error: 'visual_session_id required' });
-
-  // Everything except the routing key is the visual spec itself.
   const { visual_session_id: _drop, ...spec } = body;
   void _drop;
 
-  const client = clients.get(sid);
-  if (!client) {
-    console.warn('[visual] no SSE client for sid', sid, 'known:', [...clients.keys()]);
+  const payload = `event: visual\ndata: ${JSON.stringify(spec)}\n\n`;
+
+  const target = sid ? clients.get(sid) : undefined;
+  if (target) {
+    try {
+      target.write(payload);
+      console.log('[visual] pushed', spec.type, 'to', sid);
+      return res.json({ status: 'pushed', target: 'sid' });
+    } catch (err) {
+      console.error('[visual] push failed', err);
+      clients.delete(sid!);
+      // fall through to broadcast
+    }
+  }
+
+  if (clients.size === 0) {
+    console.warn('[visual] no SSE clients at all; dropping', { sid, known: [...clients.keys()] });
     return res.json({ status: 'no_client' });
   }
 
-  try {
-    client.write(`event: visual\ndata: ${JSON.stringify(spec)}\n\n`);
-    console.log('[visual] pushed', spec.type, 'to', sid);
-    res.json({ status: 'pushed' });
-  } catch (err) {
-    console.error('[visual] push failed', err);
-    clients.delete(sid);
-    res.status(500).json({ error: 'push failed' });
+  let count = 0;
+  for (const [key, res2] of clients) {
+    try { res2.write(payload); count++; }
+    catch (err) { console.error('[visual] broadcast write failed', key, err); clients.delete(key); }
   }
+  console.log('[visual] broadcast', spec.type, 'to', count, 'clients (sid was', sid ?? 'missing', ')');
+  res.json({ status: 'broadcast', count });
 });
