@@ -16,57 +16,9 @@ Tutors can paint **live visuals** while they talk — Mermaid diagrams, Desmos g
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    subgraph Browser[" "]
-        direction TB
-        FE["<b>Frontend</b><br/>React · Vite · Tailwind<br/>Learn · Teach · visuals"]
-    end
+![TutoriAI system diagram](system-diagram.png)
 
-    subgraph Server[" "]
-        BE["<b>Backend</b><br/>Express · Node<br/>session mint · webhooks · grading"]
-        APIS["<b>APIs</b><br/>Tavily · Gemini 2.5"]
-    end
-
-    subgraph EL["<b>ElevenLabs Convai</b> — STT · LLM · TTS"]
-        direction LR
-        Alex["Alex<br/><i>Learn · illustrated</i>"]
-        Mila["Mila<br/><i>Teach · illustrated</i>"]
-        Ann["Ann · Math"]
-        Shawn["Shawn · History"]
-        Katya["Katya · Interview"]
-        Graham["Graham · English"]
-    end
-
-    subgraph HG["<b>HeyGen</b> — LiveAvatar LITE"]
-        direction LR
-        AnnHG["Ann"]
-        ShawnHG["Shawn"]
-        KatyaHG["Katya"]
-        GrahamHG["Graham"]
-    end
-
-    FE <-->|"REST + SSE"| BE
-    BE -->|"search + grade"| APIS
-    FE ==>|"voice stream (WebSocket)"| EL
-    FE ==>|"avatar video (WebRTC / LiveKit)"| HG
-    BE -->|"tool webhooks"| EL
-    BE -->|"session minting"| HG
-    EL <-.->|"server ↔ server audio"| HG
-
-    classDef fe fill:#eff6ff,stroke:#3b82f6,stroke-width:2px
-    classDef be fill:#ecfdf5,stroke:#10b981,stroke-width:2px
-    classDef api fill:#fffbeb,stroke:#f59e0b,stroke-width:2px
-    classDef el fill:#f3f4f6,stroke:#111827,stroke-width:2px
-    classDef hg fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
-    class FE fe
-    class BE be
-    class APIS api
-    class EL,Alex,Mila,Ann,Shawn,Katya,Graham el
-    class HG,AnnHG,ShawnHG,KatyaHG,GrahamHG hg
-```
-
-A richer interactive version lives at [`frontend/public/architecture.html`](frontend/public/architecture.html) (open via `localhost:5173/architecture.html` during dev).
+Interactive version: [`frontend/public/architecture.html`](frontend/public/architecture.html) — open at `localhost:5173/architecture.html` during dev.
 
 ## How the voice paths work
 
