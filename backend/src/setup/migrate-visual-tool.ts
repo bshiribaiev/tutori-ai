@@ -114,7 +114,7 @@ const toolConfig = {
   type: 'webhook',
   name: 'render_visual',
   description,
-  response_timeout_secs: 3,
+  response_timeout_secs: 5,
   api_schema: {
     url: webhookUrl,
     method: 'POST',
@@ -125,7 +125,6 @@ const toolConfig = {
       properties: {
         visual_session_id: {
           type: 'string',
-          description: 'Routing key for this browser session (auto-injected).',
           dynamic_variable: 'visual_session_id',
         },
         type: {
