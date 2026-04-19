@@ -78,8 +78,11 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
     if (convoRef.current) return;
     setStatus('connecting');
     setError(null);
+    const t0 = performance.now();
+    const ms = () => Math.round(performance.now() - t0);
     try {
       const agentId = await fetchAgentId(role);
+      console.log(`[EL ${ms()}ms] startSession`, { role, agentId });
       const convo = await Conversation.startSession({
         agentId,
         connectionType: 'websocket',
@@ -87,6 +90,7 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
         ...(visualSessionId ? { dynamicVariables: { visual_session_id: visualSessionId } } : {}),
         clientTools: {
           render_visual: async (params: Record<string, unknown>) => {
+            console.log(`[EL ${ms()}ms] render_visual called`, params?.type);
             const spec = coerceVisualSpec(params);
             if (spec) {
               onVisualRef.current?.(spec);
@@ -95,27 +99,35 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
             return 'invalid spec';
           },
         },
-        onConnect: () => setStatus('live'),
+        onConnect: () => {
+          console.log(`[EL ${ms()}ms] onConnect`);
+          setStatus('live');
+        },
         onDisconnect: () => {
+          console.log(`[EL ${ms()}ms] onDisconnect`);
           setStatus('idle');
           setIsSpeaking(false);
           setIsListening(false);
           convoRef.current = null;
         },
         onError: (msg: string) => {
+          console.log(`[EL ${ms()}ms] onError`, msg);
           setStatus('error');
           setError(msg);
         },
         onMessage: ({ message, source }: { message: string; source: 'ai' | 'user' }) => {
+          console.log(`[EL ${ms()}ms] onMessage [${source}]`, message?.slice(0, 80));
           if (!message) return;
           onTurnRef.current?.({ role: source === 'user' ? 'user' : 'agent', text: message });
         },
         onModeChange: ({ mode }: { mode: 'speaking' | 'listening' }) => {
+          console.log(`[EL ${ms()}ms] onModeChange`, mode);
           setIsSpeaking(mode === 'speaking');
           setIsListening(mode === 'listening');
           onModeRef.current?.(mode);
         },
       });
+      console.log(`[EL ${ms()}ms] startSession resolved`);
       convoRef.current = convo;
     } catch (err) {
       setStatus('error');
