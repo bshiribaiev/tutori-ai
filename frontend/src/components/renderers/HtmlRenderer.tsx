@@ -58,6 +58,28 @@ const BASE_CSS = `
     font-size: 1.5rem; color: var(--accent);
   }
   svg { max-width: 100%; height: auto; }
+  button, input, select {
+    font: inherit; color: inherit;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+  }
+  button { cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+  button:hover { background: rgba(56,189,248,0.12); border-color: var(--accent); }
+  input[type=range] { padding: 0; accent-color: var(--accent); width: 100%; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--ink-dim); }
+  /* Animation utilities */
+  @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.45 } }
+  @keyframes slide-x { 0% { transform: translateX(-40px) } 50% { transform: translateX(40px) } 100% { transform: translateX(-40px) } }
+  @keyframes bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+  @keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+  .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  .slide { animation: slide-x 2.4s ease-in-out infinite; }
+  .bob { animation: bob 1.8s ease-in-out infinite; }
+  .spin { animation: spin 6s linear infinite; }
+  .fade-in { animation: fade-in 0.4s ease-out both; }
 `;
 
 type Props = { html: string };
@@ -67,9 +89,12 @@ export function HtmlRenderer({ html }: Props) {
     () => `<!doctype html><html><head><meta charset="utf-8"><style>${BASE_CSS}</style></head><body>${html}</body></html>`,
     [html],
   );
+  // sandbox=allow-scripts ONLY (no allow-same-origin) → scripts run in an opaque
+  // origin, cannot touch parent page, cookies, or storage. Safe to execute
+  // agent-authored <script> for interactivity.
   return (
     <iframe
-      sandbox="allow-same-origin"
+      sandbox="allow-scripts"
       srcDoc={srcDoc}
       className="w-full h-full border-0 bg-transparent"
       title="visual"
