@@ -124,6 +124,9 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
           console.log(`[EL ${ms()}ms] onConnect`);
           setStatus('live');
         },
+        onAudio: (b64: string) => {
+          console.log(`[EL ${ms()}ms] onAudio chunk bytes=${b64?.length ?? 0}`);
+        },
         onDisconnect: () => {
           console.log(`[EL ${ms()}ms] onDisconnect`);
           setStatus('idle');
@@ -164,6 +167,37 @@ export function useELDirect({ role = 'student', voiceIdOverride, visualSessionId
            .catch((err) => console.warn(`[EL ${ms()}ms] audio.play() blocked`, err?.name, err?.message));
         }
       });
+
+      // Poll the worklet's output volume; log the first non-zero sample so we
+      // know when actual audible samples begin. If this fires at ~1s but user
+      // hears nothing until ~30s, the issue is downstream (audio element /
+      // speakers). If it fires at ~30s, worklet itself is stalling (either
+      // buffers hold silence or real samples arrive late).
+      let firstVol = false;
+      let volFrames = 0;
+      const pollStart = ms();
+      let rafId = 0;
+      const pollVolume = () => {
+        const getVol = (convo as unknown as { getOutputVolume?: () => number }).getOutputVolume;
+        if (getVol) {
+          const v = getVol.call(convo);
+          volFrames++;
+          if (!firstVol && v > 0.001) {
+            firstVol = true;
+            console.log(`[EL ${ms()}ms] FIRST WORKLET OUTPUT VOLUME (v=${v.toFixed(4)}, after ${volFrames} frames, pollStartedAt=${pollStart}ms)`);
+          }
+        }
+        rafId = requestAnimationFrame(pollVolume);
+      };
+      rafId = requestAnimationFrame(pollVolume);
+      // Stop the poll when the convo ends.
+      const origEndSession = (convo as unknown as { endSession?: () => Promise<void> }).endSession;
+      if (origEndSession) {
+        (convo as unknown as { endSession: () => Promise<void> }).endSession = async () => {
+          cancelAnimationFrame(rafId);
+          return origEndSession.call(convo);
+        };
+      }
       convoRef.current = convo;
     } catch (err) {
       setStatus('error');
