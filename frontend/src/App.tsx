@@ -68,7 +68,11 @@ function TutoriAI() {
     if (mode !== 'learn') return;
     if (!selectedTutor || selectedTutor === 'alex') return;
     const url = `${API_BASE}/api/visual/stream?sid=${encodeURIComponent(visualSessionId)}`;
+    console.log('[tutoriai] SSE opening for', selectedTutor, 'sid=', visualSessionId);
     const es = new EventSource(url);
+    es.onopen = () => console.log('[tutoriai] SSE open readyState=', es.readyState);
+    es.addEventListener('ready', (e) => console.log('[tutoriai] SSE ready', (e as MessageEvent).data));
+    es.addEventListener('ping', () => console.log('[tutoriai] SSE ping'));
     es.addEventListener('visual', (e) => {
       try {
         const spec = JSON.parse((e as MessageEvent).data) as VisualSpec;
@@ -78,8 +82,8 @@ function TutoriAI() {
         console.warn('[tutoriai] bad visual payload', err);
       }
     });
-    es.onerror = (err) => console.warn('[tutoriai] SSE error', err);
-    return () => es.close();
+    es.onerror = (err) => console.warn('[tutoriai] SSE error readyState=', es.readyState, err);
+    return () => { console.log('[tutoriai] SSE closing'); es.close(); };
   }, [mode, selectedTutor, visualSessionId]);
 
   const appendTranscript = useCallback((entry: TranscriptEntry) => {
